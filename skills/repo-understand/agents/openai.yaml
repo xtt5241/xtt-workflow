@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Understand"
+  short_description: "Infer repo profile and risk hints"
+  default_prompt: "Use $repo-understand to inspect a workspace repo and draft an initial repo profile."

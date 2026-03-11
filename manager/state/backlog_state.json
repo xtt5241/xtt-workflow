@@ -132,6 +132,13 @@
       "repo": "xtt-workflow-direct",
       "base_branch": "local",
       "updated_at": "2026-03-11 04:11:51"
+    },
+    "P3-02": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p3-02",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-11 04:56:28"
     }
   }
 }

@@ -280,6 +280,32 @@ cd ~/xtt-workflow/workspace
 git clone <YOUR_REPO_URL> my-project
 ```
 
+### 9.1.1 为新 repo 自动生成初始 profile（推荐）
+
+```bash
+~/xtt-workflow/scripts/onboard_repo_profile.sh my-project
+```
+
+这个命令会：
+
+- 扫描 `workspace/my-project` 的技术栈、常见命令、目录和风险点
+- 生成初始 `config/repos/my-project.json`
+- 给后续 `tool_router` / test strategy / risk check 提供更好的默认值
+
+如果你是直接用 Codex 做接入，也可以使用 skill：
+
+```text
+$repo-understand
+```
+
+让它先阅读仓库并给出 profile 建议，再决定是否写入配置。
+
+如果你把 repo 里的本地 skill 同步到各个 `codex-home`，可以执行：
+
+```bash
+~/xtt-workflow/scripts/link_local_skills.sh
+```
+
 ### 9.2 在管理页创建任务时填写
 
 - `repo = my-project`
