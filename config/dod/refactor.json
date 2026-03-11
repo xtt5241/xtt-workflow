@@ -1,0 +1,6 @@
+{
+  "task_kind": "refactor",
+  "label": "Refactor",
+  "required_verify_sections": ["复现步骤", "成功路径", "是否可合并", "剩余风险"],
+  "deliver_rule": "Verify 必须说明改动可用且未引入额外回归风险。"
+}

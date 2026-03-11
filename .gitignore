@@ -1,0 +1,29 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtualenvs
+.venv/
+manager/.venv/
+
+# Runtime state
+manager/logs/
+manager/results/
+manager/state/
+manager/queue/
+
+# Worktrees / managed repos
+workspace/
+
+# Secrets and local Codex runtime
+codex-homes/**/auth.json
+codex-homes/**/sessions/
+codex-homes/**/memories/
+
+# Local scratch / backups
+backups/
+test-codex/node_modules/
+

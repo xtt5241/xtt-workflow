@@ -1,0 +1,12 @@
+model_provider = "relay-b"
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+network_access = "enabled"
+disable_response_storage = true
+
+[model_providers.relay-b]
+name = "relay-b"
+base_url = "https://vpsairobot.com"
+wire_api = "responses"
+requires_openai_auth = true

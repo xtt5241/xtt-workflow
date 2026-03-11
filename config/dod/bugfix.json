@@ -1,0 +1,6 @@
+{
+  "task_kind": "bugfix",
+  "label": "Bugfix",
+  "required_verify_sections": ["复现步骤", "成功路径", "失败路径", "是否可合并", "剩余风险"],
+  "deliver_rule": "Verify 必须说明修复成功路径与失败路径。"
+}

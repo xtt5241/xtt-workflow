@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>xtt Workflow Manager</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='dashboard.css') }}" rel="stylesheet">
+</head>
+<body>
+  <main class="container-fluid px-3 px-lg-4 py-4 dashboard-shell">
+    <section class="hero-card card border-0 shadow-lg mb-4 overflow-hidden">
+      <div class="card-body p-4 p-xl-5">
+        <div class="row g-4 align-items-stretch">
+          <div class="col-xl-7">
+            <div class="d-flex align-items-center gap-2 text-info-emphasis mb-3 small fw-semibold text-uppercase">
+              <i class="bi bi-diagram-3"></i>
+              <span>Codex 多项目工作台</span>
+            </div>
+            <h1 class="display-6 fw-bold mb-3">xtt Workflow Manager</h1>
+            <p class="lead text-secondary mb-4">统一派发多项目 build、review、verify 任务；自动按项目隔离 worktree，并在手机端也能快速查看队列与日志。</p>
+            <div class="row g-3">
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card">
+                  <div class="metric-label">总任务数</div>
+                  <div class="metric-value">{{ total_tasks }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card">
+                  <div class="metric-label">项目数</div>
+                  <div class="metric-value">{{ projects|length }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card">
+                  <div class="metric-label">执行中</div>
+                  <div class="metric-value">{{ queue_counts['running'] }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card metric-alert">
+                  <div class="metric-label">失败队列</div>
+                  <div class="metric-value">{{ queue_counts['failed'] }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card {% if watchdog['counts']['worker_alerts'] %}metric-alert{% endif %}">
+                  <div class="metric-label">Worker 告警</div>
+                  <div class="metric-value">{{ watchdog['counts']['worker_alerts'] }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card {% if watchdog['counts']['stuck_tasks'] %}metric-alert{% endif %}">
+                  <div class="metric-label">Stuck Tasks</div>
+                  <div class="metric-value">{{ watchdog['counts']['stuck_tasks'] }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="watchdog-panel mt-4 p-3 rounded-4 border border-secondary-subtle">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                <div>
+                  <div class="small text-uppercase fw-semibold text-info-emphasis mb-1">Watchdog</div>
+                  <div class="text-secondary small">检测 tmux 会话、worker 心跳和 running 任务卡死。</div>
+                </div>
+                <div class="small text-secondary">{{ watchdog['generated_at'] }}</div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                {% for worker in watchdog['workers'] %}
+                <span class="badge rounded-pill px-3 py-2 {% if worker['is_alert'] %}text-bg-danger{% else %}text-bg-success{% endif %}">
+                  {{ worker['role'] }} · {{ worker['health'] }}
+                </span>
+                {% endfor %}
+              </div>
+              {% if watchdog['stuck_tasks'] %}
+              <div class="small text-warning-emphasis">
+                卡住任务：
+                {% for item in watchdog['stuck_tasks'] %}
+                <span class="me-2">{{ item['task_id'] }} → {{ item['target_queue'] }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="small text-secondary">当前未发现 stuck task。</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-xl-5">
+            <div class="card bg-body-tertiary border-0 h-100 shadow-sm">
+              <div class="card-body p-4">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                  <div>
+                    <h2 class="h4 mb-1">创建 Build 任务</h2>
+                    <p class="text-secondary mb-0">按项目与基础分支创建任务，后续 review / verify 自动串联。</p>
+                  </div>
+                  <span class="badge rounded-pill text-bg-primary px-3 py-2">Builder</span>
+                </div>
+                <form method="post" action="/create" id="task-form" novalidate>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label for="repo" class="form-label">项目名</label>
+                      <select class="form-select form-select-lg" id="repo" name="repo" {% if not projects %}disabled{% endif %}>
+                        {% for project in projects %}
+                        <option value="{{ project }}" {% if project == default_repo %}selected{% endif %}>{{ project }}</option>
+                        {% endfor %}
+                      </select>
+                      <div class="form-text">列表来自 `workspace/` 下已 clone 的 Git 仓库。</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="base_branch" class="form-label">基础分支</label>
+                      <select class="form-select form-select-lg" id="base_branch" name="base_branch" {% if not projects %}disabled{% endif %}></select>
+                      <div class="form-text">默认优先使用 repo profile 配置的默认分支，其次读取远程 `origin/*`。</div>
+                    </div>
+                    <div class="col-12">
+                      <div class="small text-secondary border rounded-3 p-3 bg-dark-subtle" id="repo_profile_hint"></div>
+                    </div>
+                    <div class="col-12">
+                      <label for="title" class="form-label">任务标题</label>
+                      <input class="form-control form-control-lg" id="title" type="text" name="title" placeholder="比如：修复登录页按钮状态异常" autocomplete="off">
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+                      <button class="btn btn-primary btn-lg" type="submit" {% if not projects %}disabled{% endif %}>
+                        <i class="bi bi-plus-circle me-2"></i>创建任务
+                      </button>
+                      <a class="btn btn-outline-light btn-lg" href="/">
+                        <i class="bi bi-arrow-clockwise me-2"></i>刷新
+                      </a>
+                    </div>
+                  </div>
+                </form>
+                {% if not projects %}
+                <div class="alert alert-warning mt-3 mb-0">`workspace/` 下还没有可用项目仓库，请先 clone 项目。</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12 col-xxl-5">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">Backlog Runner</h2>
+                <p class="text-secondary mb-0">最小可用自我迭代模式：解析清单、挑出下一项、转成 build 任 务，并在 verify 完成后等待人工确认。</p>
+              </div>
+              <span class="badge text-bg-info rounded-pill px-3 py-2">{{ backlog['items']|length }} items</span>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <div class="metric-card h-100">
+                  <div class="metric-label">待执行</div>
+                  <div class="metric-value">{{ backlog['counts']['todo'] }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="metric-card h-100">
+                  <div class="metric-label">待人工确认</div>
+                  <div class="metric-value">{{ backlog['counts']['ready_for_human'] }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="small text-secondary mb-3">来源文件：<code>{{ backlog_file }}</code></div>
+
+            {% if not self_git_ready %}
+            <div class="alert alert-warning small">当前这个 runner 会把 backlog item 转成普通 repo 任务派发到你选中的仓库。若要让 <code>~/xtt-workflow</code> 真正改自己本体，还需要先把框架目录本身纳入 Git / worktree 管理。</div>
+            {% endif %}
+
+            {% if backlog['blocked_reason'] %}
+            <div class="alert alert-secondary small">{{ backlog['blocked_reason'] }}</div>
+            {% elif backlog['next_ready_item'] %}
+            <div class="alert alert-primary small">下一项候选：<strong>{{ backlog['next_ready_item']['id'] }}</strong> · {{ backlog['next_ready_item']['title'] }}</div>
+            {% else %}
+            <div class="alert alert-success small">当前没有可自动派发的 backlog item。</div>
+            {% endif %}
+
+            <form method="post" action="/backlog/next" id="backlog-form">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="backlog_repo" class="form-label">目标项目</label>
+                  <select class="form-select" id="backlog_repo" name="backlog_repo" {% if not projects %}disabled{% endif %}>
+                    {% for project in projects %}
+                    <option value="{{ project }}" {% if project == default_repo %}selected{% endif %}>{{ project }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label for="backlog_base_branch" class="form-label">基础分支</label>
+                  <select class="form-select" id="backlog_base_branch" name="backlog_base_branch" {% if not projects %}disabled{% endif %}></select>
+                </div>
+                <div class="col-12">
+                  <div class="small text-secondary border rounded-3 p-3 bg-dark-subtle" id="backlog_repo_profile_hint"></div>
+                </div>
+                <div class="col-12 d-flex flex-wrap gap-2">
+                  <button class="btn btn-info" type="submit" {% if not backlog['next_ready_item'] or backlog['blocked_reason'] or not projects %}disabled{% endif %}>
+                    <i class="bi bi-play-circle me-2"></i>派发下一项
+                  </button>
+                  <a class="btn btn-outline-light" href="/">刷新状态</a>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xxl-7">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">Backlog 状态</h2>
+                <p class="text-secondary mb-0">当前是最小模式：每次只推进一项，verify 完成后必须人工确认，才会允许继续下一项。</p>
+              </div>
+            </div>
+
+            {% if backlog['items'] %}
+            <div class="backlog-list list-group list-group-flush">
+              {% for item in backlog['items'] %}
+              <div class="list-group-item bg-transparent px-0 py-3 border-secondary-subtle">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div class="min-w-0">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                      <span class="badge text-bg-dark border">{{ item['id'] }}</span>
+                      <span class="badge text-bg-{{ item['status_meta']['tone'] }}">{{ item['status_meta']['label'] }}</span>
+                      <span class="badge text-bg-dark border">{{ item['priority'] }}</span>
+                      <span class="badge text-bg-dark border">{{ item['effort'] }}</span>
+                    </div>
+                    <div class="fw-semibold mb-1">{{ item['title'] }}</div>
+                    <div class="small text-secondary mb-2">{{ item['phase'] }}</div>
+                    {% if item['goal'] %}<div class="small text-secondary text-break mb-2">目标：{{ item['goal'] }}</div>{% endif %}
+                    {% if item['dependencies'] %}<div class="small text-secondary text-break">依赖：{{ item['dependencies']|join(', ') }}</div>{% endif %}
+                    {% if item['repo'] %}<div class="small text-secondary text-break">最近执行：{{ item['repo'] }} / {{ item['base_branch'] }} / {{ item['last_task_id'] }}</div>{% endif %}
+                  </div>
+                  <div class="d-flex flex-column gap-2 flex-shrink-0">
+                    {% if item['status'] == 'ready_for_human' %}
+                    <form method="post" action="/backlog/approve/{{ item['id'] }}">
+                      <button class="btn btn-sm btn-success" type="submit">确认完成</button>
+                    </form>
+                    {% endif %}
+                    {% if item['status'] in ['failed', 'blocked'] %}
+                    <form method="post" action="/backlog/reset/{{ item['id'] }}">
+                      <button class="btn btn-sm btn-outline-warning" type="submit">重置为待执行</button>
+                    </form>
+                    {% elif item['status'] == 'todo' and not item['deps_done'] %}
+                    <button class="btn btn-sm btn-outline-secondary" type="button" disabled>依赖未完成</button>
+                    {% endif %}
+                    {% if item['status'] != 'done' %}
+                    <form method="post" action="/backlog/block/{{ item['id'] }}">
+                      <button class="btn btn-sm btn-outline-secondary" type="submit">标记阻塞</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">未解析到 backlog item</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="row g-4 align-items-start">
+      <div class="col-12 col-xxl-8">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">任务队列</h2>
+                <p class="text-secondary mb-0">每个队列独立滚动，避免页面无限拉长。</p>
+              </div>
+              <span class="text-secondary small">自动按项目隔离 worktree</span>
+            </div>
+            <div class="row g-3">
+              {% for queue_name in queue_order %}
+              <div class="col-12 col-md-6">
+                <article class="queue-panel card border-0 bg-body-tertiary h-100">
+                  <div class="card-body p-3 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div class="d-flex align-items-center gap-2 fw-semibold">
+                        <i class="bi bi-{{ queue_meta[queue_name]['icon'] }} text-{{ queue_meta[queue_name]['tone'] }}"></i>
+                        <span>{{ queue_meta[queue_name]['label'] }}</span>
+                      </div>
+                      <span class="badge text-bg-{{ queue_meta[queue_name]['tone'] }} rounded-pill px-3 py-2">{{ queue_counts[queue_name] }}</span>
+                    </div>
+                    {% if tasks[queue_name] %}
+                    <div class="queue-list list-group list-group-flush">
+                      {% for task in tasks[queue_name] %}
+                      <div class="list-group-item bg-transparent px-0 py-3 border-secondary-subtle">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                          <div class="min-w-0">
+                            <div class="fw-semibold text-truncate mb-2">{{ task['title'] }}</div>
+                            <div class="d-flex flex-wrap gap-2 mb-2 small">
+                              <span class="badge text-bg-dark border">{{ task['repo'] }}</span>
+                              <span class="badge text-bg-dark border">{{ task['base_branch'] }}</span>
+                              <span class="badge text-bg-dark border">{{ task['role'] }}</span>
+                              <span class="badge text-bg-dark border">{{ task['type'] }}</span>
+                              <span class="badge text-bg-dark border">{{ task['task_kind'] }}</span>
+                              {% if task['retry_count'] %}
+                              <span class="badge text-bg-warning">retry {{ task['retry_count'] }}</span>
+                              {% endif %}
+                            </div>
+                            <div class="small text-secondary text-break">branch: {{ task['branch'] or '-' }}</div>
+                            <div class="small text-secondary text-break">worktree: {{ task['worktree'] }}</div>
+                            {% if task['watchdog']['status'] %}
+                            <div class="small text-break {% if task['watchdog']['status'] == 'stuck' %}text-danger-emphasis{% elif task['watchdog']['status'] == 'slow' %}text-warning-emphasis{% else %}text-secondary{% endif %}">
+                              watchdog: {{ task['watchdog']['status'] }}
+                              {% if task['watchdog']['heartbeat_age_sec'] is not none %} · hb {{ task['watchdog']['heartbeat_age_sec'] }}s{% endif %}
+                              {% if task['watchdog']['runtime_sec'] is not none %} · run {{ task['watchdog']['runtime_sec'] }}s{% endif %}
+                              {% if task['watchdog']['issues'] %} · {{ task['watchdog']['issues']|join(', ') }}{% endif %}
+                            </div>
+                            {% endif %}
+                            {% if task['allowed_paths'] %}<div class="small text-secondary text-break">allow: {{ task['allowed_paths']|join(', ') }}</div>{% endif %}
+                            {% if task['forbidden_paths'] %}<div class="small text-secondary text-break">forbid: {{ task['forbidden_paths']|join(', ') }}</div>{% endif %}
+                            {% if task['allow_dependency_changes'] or task['allow_migration'] or task['allow_ci_changes'] or task['allow_deploy_changes'] or task['allow_cross_layer_refactor'] %}<div class="small text-secondary text-break">flags: dep={{ 'Y' if task['allow_dependency_changes'] else 'N' }} · mig={{ 'Y' if task['allow_migration'] else 'N' }} · ci={{ 'Y' if task['allow_ci_changes'] else 'N' }} · deploy={{ 'Y' if task['allow_deploy_changes'] else 'N' }} · xlayer={{ 'Y' if task['allow_cross_layer_refactor'] else 'N' }}</div>{% endif %}
+                            {% if task['human_reason'] %}<div class="small text-warning-emphasis text-break">human: {{ task['human_reason'] }}</div>{% endif %}
+                            {% if task['budget_report'] and task['budget_report'].get('files_changed_count') is not none %}<div class="small text-secondary text-break">budget: {{ task['budget_report'].get('files_changed_count', 0) }}/{{ task['budget_report'].get('max_files', 0) }} files · {{ task['budget_report'].get('total_lines', 0) }}/{{ task['budget_report'].get('max_lines', 0) }} lines</div>{% endif %}
+                            {% if task['result_summary'] %}
+                            <div class="result-summary mt-3">
+                              <div class="d-flex flex-wrap gap-2 mb-2 small">
+                                {% if task['result_summary']['queue'] %}<span class="badge text-bg-info-subtle border border-info-subtle text-info-emphasis">{{ task['result_summary']['queue'] }}</span>{% endif %}
+                                {% if task['result_summary']['verify_label'] %}<span class="badge text-bg-success-subtle border border-success-subtle text-success-emphasis">{{ task['result_summary']['verify_label'] }}</span>{% endif %}
+                                {% if task['result_summary']['test_strategy_level'] %}<span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ task['result_summary']['test_strategy_level'] }}</span>{% endif %}
+                                {% if task['result_summary']['evidence_count'] %}<span class="badge text-bg-dark border">evidence {{ task['result_summary']['evidence_count'] }}</span>{% endif %}
+                                {% if task['result_summary']['changed_files_count'] %}<span class="badge text-bg-dark border">files {{ task['result_summary']['changed_files_count'] }}</span>{% endif %}
+                                {% if task['result_summary']['test_total'] %}<span class="badge text-bg-dark border">tests {{ task['result_summary']['test_passed'] }}/{{ task['result_summary']['test_total'] }}</span>{% endif %}
+                                {% if task['result_summary']['review_findings_count'] %}<span class="badge text-bg-dark border">findings {{ task['result_summary']['review_findings_count'] }}</span>{% endif %}
+                              </div>
+                              {% if task['result_summary']['summary'] %}<div class="small text-info-emphasis text-break mb-2">result: {{ task['result_summary']['summary'] }}</div>{% endif %}
+                              <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <a class="btn btn-sm btn-outline-info" href="/result/{{ task['result_summary']['filename'] }}">结果详情</a>
+                                {% if task['result_summary']['written_at'] %}<div class="small text-secondary">{{ task['result_summary']['written_at'] }}</div>{% endif %}
+                              </div>
+                            </div>
+                            {% endif %}
+                            <div class="small text-secondary text-break">file: {{ task['filename'] }}</div>
+                          </div>
+                          {% if queue_name == 'failed' %}
+                          <a class="btn btn-sm btn-outline-warning flex-shrink-0" href="/retry/{{ task['filename'] }}">重试</a>
+                          {% elif queue_name == 'needs-human' %}
+                          <div class="d-flex flex-column gap-2 flex-shrink-0">
+                            <form method="post" action="/human/continue/{{ task['filename'] }}">
+                              <button class="btn btn-sm btn-success" type="submit">人工放行</button>
+                            </form>
+                            <form method="post" action="/human/reject/{{ task['filename'] }}">
+                              <button class="btn btn-sm btn-outline-danger" type="submit">转失败</button>
+                            </form>
+                          </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="queue-empty flex-grow-1 d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">当前队列为空</div>
+                    {% endif %}
+                  </div>
+                </article>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xxl-4">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">最近日志</h2>
+                <p class="text-secondary mb-0">保留最近 100 条，按最新更新时间排序。</p>
+              </div>
+              <span class="badge text-bg-secondary rounded-pill px-3 py-2">{{ logs|length }}</span>
+            </div>
+            {% if logs %}
+            <div class="log-list list-group list-group-flush">
+              {% for log in logs %}
+              <a class="list-group-item list-group-item-action bg-transparent px-0 py-3 border-secondary-subtle" href="/log/{{ log['name'] }}">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div class="min-w-0">
+                    <div class="fw-semibold text-truncate mb-1">{{ log['name'] }}</div>
+                    <div class="small text-secondary">{{ log['mtime'] }} · {{ log['size_kb'] }} KB</div>
+                  </div>
+                  <i class="bi bi-box-arrow-up-right text-secondary flex-shrink-0"></i>
+                </div>
+              </a>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">还没有日志输出</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    window.xttBranchMap = {{ branch_map | tojson }};
+    window.xttDefaultBranch = {{ default_branch | tojson }};
+    window.xttRepoDefaultBranchMap = {{ repo_default_branch_map | tojson }};
+    window.xttRepoProfileMap = {{ repo_profiles | tojson }};
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

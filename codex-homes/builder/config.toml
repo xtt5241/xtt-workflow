@@ -1,0 +1,15 @@
+# managed_by = "scripts/setup_relay_keys.sh"
+# policy = "builder-policy-v1"
+# builder config is intentionally fixed and should not be tuned ad hoc.
+model_provider = "relay-a"
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+model_verbosity = "high"
+network_access = "enabled"
+disable_response_storage = true
+
+[model_providers.relay-a]
+name = "relay-a"
+base_url = "https://vpsairobot.com"
+wire_api = "responses"
+requires_openai_auth = true

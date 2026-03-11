@@ -1,0 +1,6 @@
+{
+  "task_kind": "feature",
+  "label": "Feature",
+  "required_verify_sections": ["复现步骤", "成功路径", "是否可合并", "剩余风险"],
+  "deliver_rule": "Verify 必须明确可合并结论，并说明剩余风险。"
+}

@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "field_order": [
+    "id",
+    "type",
+    "title",
+    "task_kind",
+    "repo",
+    "base_branch",
+    "repo_profile_summary",
+    "repo_profile",
+    "dod_summary",
+    "source_ref",
+    "goal",
+    "acceptance",
+    "risk_level",
+    "evidence_required",
+    "change_budget",
+    "allow_auto_commit",
+    "allow_push",
+    "allow_pr",
+    "allow_cross_layer_refactor",
+    "allow_deploy_changes",
+    "allow_ci_changes",
+    "allow_migration",
+    "allow_dependency_changes",
+    "allowed_paths",
+    "forbidden_paths",
+    "worktree",
+    "branch",
+    "prompt_file",
+    "role",
+    "status",
+    "retry_count",
+    "depends_on"
+  ],
+  "role_by_type": {
+    "build": "builder",
+    "review": "reviewer",
+    "verify": "verifier",
+    "plan": "planner"
+  },
+  "prompt_file_by_type": {
+    "build": "build_prompt.md",
+    "review": "review_prompt.md",
+    "verify": "verify_prompt.md",
+    "plan": "plan_prompt.md"
+  },
+  "required": {
+    "all": [
+      "id",
+      "type",
+      "title",
+      "task_kind",
+      "repo",
+      "base_branch",
+      "dod_summary",
+      "goal",
+      "acceptance",
+      "risk_level",
+      "evidence_required",
+      "change_budget",
+      "allow_auto_commit",
+      "allow_push",
+      "allow_pr",
+      "allow_cross_layer_refactor",
+      "allow_deploy_changes",
+      "allow_ci_changes",
+      "allow_migration",
+      "allow_dependency_changes",
+      "allowed_paths",
+      "forbidden_paths",
+      "worktree",
+      "branch",
+      "prompt_file",
+      "role",
+      "status",
+      "retry_count",
+      "depends_on"
+    ],
+    "review": [
+      "source_ref"
+    ],
+    "verify": [
+      "source_ref"
+    ]
+  },
+  "types": {
+    "id": "string",
+    "type": "string",
+    "title": "string",
+    "task_kind": "string",
+    "repo": "string",
+    "base_branch": "string",
+    "repo_profile_summary": "string",
+    "repo_profile": "object",
+    "dod_summary": "string",
+    "source_ref": "string",
+    "goal": "string",
+    "acceptance": "string_array",
+    "risk_level": "string",
+    "evidence_required": "string_array",
+    "change_budget": "object",
+    "allow_auto_commit": "boolean",
+    "allow_push": "boolean",
+    "allow_pr": "boolean",
+    "allowed_paths": "string_array",
+    "forbidden_paths": "string_array",
+    "worktree": "string",
+    "branch": "string",
+    "prompt_file": "string",
+    "role": "string",
+    "status": "string",
+    "retry_count": "integer",
+    "depends_on": "string_array",
+    "allow_dependency_changes": "boolean",
+    "allow_migration": "boolean",
+    "allow_ci_changes": "boolean",
+    "allow_deploy_changes": "boolean",
+    "allow_cross_layer_refactor": "boolean"
+  },
+  "enums": {
+    "type": [
+      "build",
+      "review",
+      "verify",
+      "plan"
+    ],
+    "role": [
+      "builder",
+      "reviewer",
+      "verifier",
+      "planner"
+    ],
+    "status": [
+      "pending",
+      "running",
+      "done",
+      "failed"
+    ],
+    "risk_level": [
+      "low",
+      "medium",
+      "high"
+    ],
+    "task_kind": [
+      "bugfix",
+      "feature",
+      "refactor",
+      "infra"
+    ]
+  },
+  "defaults": {
+    "common": {
+      "task_kind": "feature",
+      "dod_summary": "",
+      "status": "pending",
+      "retry_count": 0,
+      "depends_on": [],
+      "risk_level": "medium",
+      "allow_push": false,
+      "allow_pr": false,
+      "allowed_paths": [],
+      "forbidden_paths": [
+        ".git",
+        ".env",
+        "secrets",
+        "node_modules",
+        "dist",
+        "build"
+      ],
+      "allow_dependency_changes": false,
+      "allow_migration": false,
+      "allow_ci_changes": false,
+      "allow_deploy_changes": false,
+      "allow_cross_layer_refactor": false
+    },
+    "by_type": {
+      "build": {
+        "allow_auto_commit": true,
+        "evidence_required": [
+          "changed files",
+          "summary",
+          "verification",
+          "risks"
+        ],
+        "change_budget": {
+          "max_files": 20,
+          "max_lines": 400
+        }
+      },
+      "review": {
+        "allow_auto_commit": false,
+        "evidence_required": [
+          "diff",
+          "review notes"
+        ],
+        "change_budget": {
+          "max_files": 0,
+          "max_lines": 0
+        }
+      },
+      "verify": {
+        "allow_auto_commit": false,
+        "evidence_required": [
+          "diff",
+          "verification result"
+        ],
+        "change_budget": {
+          "max_files": 0,
+          "max_lines": 0
+        }
+      },
+      "plan": {
+        "allow_auto_commit": false,
+        "evidence_required": [
+          "affected files",
+          "proposed steps",
+          "test plan",
+          "risks"
+        ],
+        "change_budget": {
+          "max_files": 0,
+          "max_lines": 0
+        }
+      }
+    }
+  }
+}
