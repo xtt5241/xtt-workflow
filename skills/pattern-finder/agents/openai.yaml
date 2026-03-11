@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pattern Finder"
+  short_description: "Find similar repo implementations fast"
+  default_prompt: "Use $pattern-finder to find similar implementations in the repo before editing code."

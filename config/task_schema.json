@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "field_order": [
     "id",
     "type",
@@ -11,6 +11,9 @@
     "repo_profile",
     "tool_router_summary",
     "tool_router",
+    "similar_impl_paths",
+    "pattern_finder_summary",
+    "pattern_finder",
     "dod_summary",
     "source_ref",
     "goal",
@@ -133,7 +136,10 @@
     "env_risk_report": "object",
     "risk_signals": "string_array",
     "tool_router_summary": "string",
-    "tool_router": "object"
+    "tool_router": "object",
+    "similar_impl_paths": "string_array",
+    "pattern_finder_summary": "string",
+    "pattern_finder": "object"
   },
   "enums": {
     "type": [

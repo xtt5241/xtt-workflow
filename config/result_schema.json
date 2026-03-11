@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "name": "workflow_result_payload",
   "required": [
     "version",
@@ -42,7 +42,10 @@
     "release_note",
     "rollback_note",
     "tool_router_summary",
-    "tool_router"
+    "tool_router",
+    "similar_impl_paths",
+    "pattern_finder_summary",
+    "pattern_finder"
   ],
   "version_fields": [
     "prompt_version",

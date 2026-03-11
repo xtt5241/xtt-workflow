@@ -304,6 +304,13 @@ then
   fail_task
 fi
 
+if [ "$ROLE" = "builder" ] && [ "$TYPE" = "build" ]; then
+  if ! python3 "$ROOT/skills/pattern-finder/scripts/find_similar_paths.py" --repo-path "$WORKTREE_PATH" --task-json "$RUNNING_FILE" --write-task >> "$LOG_PATH" 2>&1
+  then
+    fail_task
+  fi
+fi
+
 if ! python3 "$ROOT/manager/task_schema.py" render-prompt "$RUNNING_FILE" "$PROMPT_PATH" "$PROMPT_TMP" >> "$LOG_PATH" 2>&1
 then
   fail_task

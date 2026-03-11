@@ -1,5 +1,5 @@
 Prompt Name: build
-Prompt Version: 2
+Prompt Version: 3
 
 任务标题：{{title}}
 任务类型：{{type}}
@@ -25,6 +25,12 @@ DoD：
 
 Tool Router：
 {{tool_router_summary}}
+
+相似实现候选：
+{{similar_impl_paths}}
+
+Pattern Finder：
+{{pattern_finder_summary}}
 
 建议测试层级：{{test_strategy_level}}
 测试层级原因：{{test_strategy_reason}}
