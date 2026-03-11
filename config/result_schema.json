@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "name": "workflow_result_payload",
   "required": [
     "version",
@@ -40,7 +40,9 @@
     "env_risk_report",
     "pr_description",
     "release_note",
-    "rollback_note"
+    "rollback_note",
+    "tool_router_summary",
+    "tool_router"
   ],
   "version_fields": [
     "prompt_version",

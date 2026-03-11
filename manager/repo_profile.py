@@ -8,6 +8,16 @@ MANAGER_DIR = Path(__file__).resolve().parent
 WORKFLOW_ROOT = MANAGER_DIR.parent
 REPO_PROFILE_DIR = WORKFLOW_ROOT / "config" / "repos"
 
+DEFAULT_TOOL_ROUTER = {
+    "read_first": [],
+    "run_first": [],
+    "risk_focus": [],
+    "evidence_focus": [],
+    "execution_order": [],
+    "by_type": {},
+    "by_task_kind": {},
+}
+
 DEFAULT_REPO_PROFILE = {
     "version": 1,
     "stack": "generic",
@@ -28,6 +38,7 @@ DEFAULT_REPO_PROFILE = {
     "package_manager_files": [],
     "forbidden_paths": [".git", ".env", "secrets", "node_modules", "dist", "build"],
     "needs_ui_evidence": False,
+    "tool_router": DEFAULT_TOOL_ROUTER,
 }
 
 
@@ -68,6 +79,40 @@ def _dedupe(items: list[str]) -> list[str]:
     return result
 
 
+def _normalize_tool_router_layer(value) -> dict:
+    payload = value if isinstance(value, dict) else {}
+    return {
+        "read_first": _dedupe(_normalize_list(payload.get("read_first", []))),
+        "run_first": _dedupe(_normalize_list(payload.get("run_first", []))),
+        "risk_focus": _dedupe(_normalize_list(payload.get("risk_focus", []))),
+        "evidence_focus": _dedupe(_normalize_list(payload.get("evidence_focus", []))),
+        "execution_order": _dedupe(_normalize_list(payload.get("execution_order", []))),
+    }
+
+
+def normalize_tool_router_profile(value) -> dict:
+    payload = value if isinstance(value, dict) else {}
+    normalized = _normalize_tool_router_layer(payload)
+
+    by_type = {}
+    raw_by_type = payload.get("by_type", {}) if isinstance(payload.get("by_type"), dict) else {}
+    for key, item in raw_by_type.items():
+        normalized_key = _normalize_string(key)
+        if normalized_key:
+            by_type[normalized_key] = _normalize_tool_router_layer(item)
+
+    by_task_kind = {}
+    raw_by_task_kind = payload.get("by_task_kind", {}) if isinstance(payload.get("by_task_kind"), dict) else {}
+    for key, item in raw_by_task_kind.items():
+        normalized_key = _normalize_string(key)
+        if normalized_key:
+            by_task_kind[normalized_key] = _normalize_tool_router_layer(item)
+
+    normalized["by_type"] = by_type
+    normalized["by_task_kind"] = by_task_kind
+    return normalized
+
+
 def repo_profile_path(repo: str) -> Path:
     return REPO_PROFILE_DIR / f"{repo}.json"
 
@@ -98,6 +143,7 @@ def normalize_repo_profile(repo: str, profile: dict | None = None) -> dict:
         "package_manager_files": _dedupe(_normalize_list(merged.get("package_manager_files", []))),
         "forbidden_paths": _dedupe(_normalize_list(merged.get("forbidden_paths", []))),
         "needs_ui_evidence": _normalize_bool(merged.get("needs_ui_evidence", False)),
+        "tool_router": normalize_tool_router_profile(merged.get("tool_router", {})),
     }
     normalized["repo"] = repo
     return normalized
@@ -135,6 +181,11 @@ def order_remote_branches(profile: dict, remote_branches: list[str]) -> list[str
 
 
 def repo_profile_summary(profile: dict) -> str:
+    tool_router = profile.get("tool_router", {}) if isinstance(profile.get("tool_router"), dict) else {}
+    configured_router = any(
+        tool_router.get(key)
+        for key in ("read_first", "run_first", "risk_focus", "evidence_focus", "execution_order")
+    ) or bool(tool_router.get("by_type")) or bool(tool_router.get("by_task_kind"))
     lines = [
         f"- version: {profile.get('version') or 1}",
         f"- stack: {profile.get('stack') or 'generic'}",
@@ -155,5 +206,6 @@ def repo_profile_summary(profile: dict) -> str:
         f"- package_manager_files: {', '.join(profile.get('package_manager_files') or ['(none)'])}",
         f"- forbidden_paths: {', '.join(profile.get('forbidden_paths') or ['(none)'])}",
         f"- needs_ui_evidence: {'true' if profile.get('needs_ui_evidence') else 'false'}",
+        f"- tool_router: {'configured' if configured_router else 'heuristic-only'}",
     ]
     return "\n".join(lines)

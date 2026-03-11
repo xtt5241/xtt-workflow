@@ -1,7 +1,10 @@
 Prompt Name: plan
-Prompt Version: 1
+Prompt Version: 2
 
 任务：{{title}}
+
+Tool Router：
+{{tool_router_summary}}
 
 请先阅读相关代码，只输出最小实现计划，不要直接修改代码。
 输出：

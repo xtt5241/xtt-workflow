@@ -1,5 +1,5 @@
 Prompt Name: build
-Prompt Version: 1
+Prompt Version: 2
 
 任务标题：{{title}}
 任务类型：{{type}}
@@ -22,6 +22,9 @@ DoD：
 风险级别：{{risk_level}}
 证据要求：
 {{evidence_required}}
+
+Tool Router：
+{{tool_router_summary}}
 
 建议测试层级：{{test_strategy_level}}
 测试层级原因：{{test_strategy_reason}}

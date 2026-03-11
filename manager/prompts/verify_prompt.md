@@ -1,5 +1,5 @@
 Prompt Name: verify
-Prompt Version: 1
+Prompt Version: 2
 
 请验证当前任务对象定义的改动是否真的可用。
 
@@ -25,6 +25,9 @@ DoD：
 风险级别：{{risk_level}}
 证据要求：
 {{evidence_required}}
+
+Tool Router：
+{{tool_router_summary}}
 
 环境 / 依赖风险摘要：
 {{env_risk_summary}}

@@ -299,6 +299,11 @@ start_task_watchdog
 
 log_git_diff_context
 
+if ! python3 "$ROOT/manager/tool_router.py" apply "$RUNNING_FILE" --in-place >> "$LOG_PATH" 2>&1
+then
+  fail_task
+fi
+
 if ! python3 "$ROOT/manager/task_schema.py" render-prompt "$RUNNING_FILE" "$PROMPT_PATH" "$PROMPT_TMP" >> "$LOG_PATH" 2>&1
 then
   fail_task

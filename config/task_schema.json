@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "field_order": [
     "id",
     "type",
@@ -9,6 +9,8 @@
     "base_branch",
     "repo_profile_summary",
     "repo_profile",
+    "tool_router_summary",
+    "tool_router",
     "dod_summary",
     "source_ref",
     "goal",
@@ -129,7 +131,9 @@
     "allow_cross_layer_refactor": "boolean",
     "env_risk_summary": "string",
     "env_risk_report": "object",
-    "risk_signals": "string_array"
+    "risk_signals": "string_array",
+    "tool_router_summary": "string",
+    "tool_router": "object"
   },
   "enums": {
     "type": [

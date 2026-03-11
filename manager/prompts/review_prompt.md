@@ -1,5 +1,5 @@
 Prompt Name: review
-Prompt Version: 1
+Prompt Version: 2
 
 请 review 当前任务对象定义的改动。
 
@@ -25,6 +25,9 @@ DoD：
 风险级别：{{risk_level}}
 证据要求：
 {{evidence_required}}
+
+Tool Router：
+{{tool_router_summary}}
 
 允许修改路径：
 {{allowed_paths}}

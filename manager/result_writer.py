@@ -624,6 +624,8 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
         "written_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
         "summary": summary,
         "risk_signals": [str(item).strip() for item in task.get("risk_signals", []) if str(item).strip()],
+        "tool_router_summary": str(task.get("tool_router_summary", "")).strip(),
+        "tool_router": maybe_keep(task.get("tool_router", {}), existing.get("tool_router")),
         "env_risk_summary": str(task.get("env_risk_summary", "none detected")).strip() or "none detected",
         "env_risk_report": maybe_keep(task.get("env_risk_report", {}), existing.get("env_risk_report")),
         "test_strategy_level": str(task.get("test_strategy_level", "")).strip(),

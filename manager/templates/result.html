@@ -169,6 +169,21 @@
     </section>
     {% endif %}
 
+    {% if result.get('tool_router_summary') or result.get('tool_router') %}
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <h2 class="h5 mb-0">Tool Router</h2>
+          <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">route plan</span>
+        </div>
+        {% if result.get('tool_router', {}).get('route_key') %}
+        <div class="small text-secondary mb-3">{{ result.get('tool_router', {}).get('route_key') }}</div>
+        {% endif %}
+        <pre class="result-pre mb-0">{{ result.get('tool_router_summary') or result.get('tool_router') | tojson(indent=2) }}</pre>
+      </div>
+    </section>
+    {% endif %}
+
     <section class="card border-0 shadow-lg overflow-hidden mb-4">
       <div class="card-body p-4 p-lg-5">
         <div class="d-flex justify-content-between align-items-center gap-3 mb-3">

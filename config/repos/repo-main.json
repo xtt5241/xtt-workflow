@@ -18,7 +18,7 @@
     "build"
   ],
   "needs_ui_evidence": false,
-  "version": 1,
+  "version": 2,
   "dependency_files": [],
   "lockfile_files": [],
   "environment_paths": [
@@ -45,5 +45,46 @@
     ".npmrc",
     ".yarnrc",
     ".yarnrc.yml"
-  ]
+  ],
+  "tool_router": {
+    "read_first": [
+      "README.md",
+      "manager/",
+      "config/"
+    ],
+    "evidence_focus": [
+      "structured result json"
+    ],
+    "by_type": {
+      "build": {
+        "execution_order": [
+          "inspect-current-behavior",
+          "patch-minimal-surface",
+          "run-targeted-validation",
+          "capture-structured-result"
+        ]
+      },
+      "review": {
+        "execution_order": [
+          "inspect-real-diff",
+          "read-risk-files",
+          "report-findings-only"
+        ]
+      },
+      "verify": {
+        "execution_order": [
+          "inspect-real-diff",
+          "run-targeted-or-smoke-validation",
+          "write-merge-decision-and-risks"
+        ]
+      }
+    },
+    "by_task_kind": {
+      "infra": {
+        "risk_focus": [
+          "runtime / dependency / config drift"
+        ]
+      }
+    }
+  }
 }
