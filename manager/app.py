@@ -212,6 +212,86 @@ def load_result_summary(task_id):
     }
 
 
+def load_result_payload(task_id):
+    return read_json(result_path_for_task(task_id), {})
+
+
+def task_log_name(task_id):
+    return f"{task_id}.log"
+
+
+def classify_failure(task, result=None):
+    result = result or {}
+    if str(task.get("watchdog_reason", "")).strip():
+        return "watchdog"
+    if str(task.get("failure_reason", "")).startswith("watchdog:"):
+        return "watchdog"
+    if str(task.get("human_gate", "")).strip():
+        return f"human:{task.get('human_gate')}"
+    lifecycle = str(task.get("lifecycle_state", "")).strip()
+    if lifecycle.startswith("failed-"):
+        return lifecycle.removeprefix("failed-")
+    if isinstance(result, dict) and result.get("test_results"):
+        failed = [item for item in result.get("test_results", []) if isinstance(item, dict) and item.get("status") == "failed"]
+        if failed:
+            return "test"
+    return "general"
+
+
+def task_risk_tags(task, result=None):
+    result = result or {}
+    tags = []
+    risk_level = str(task.get("risk_level", "")).strip()
+    if risk_level:
+        tags.append(risk_level)
+    if str(task.get("test_strategy_level", "")).strip():
+        tags.append(f"test:{task['test_strategy_level']}")
+    if task.get("allow_dependency_changes"):
+        tags.append("dep-change")
+    if task.get("allow_migration"):
+        tags.append("migration")
+    if task.get("allow_deploy_changes"):
+        tags.append("deploy")
+    if task.get("allow_ci_changes"):
+        tags.append("ci")
+    if task.get("allow_cross_layer_refactor"):
+        tags.append("xlayer")
+    if task.get("human_gate"):
+        tags.append(f"gate:{task['human_gate']}")
+    if isinstance(result, dict):
+        if result.get("review_findings"):
+            tags.append("findings")
+        if result.get("evidence"):
+            tags.append(f"evidence:{len(result['evidence'])}")
+        decision = result.get("verify_decision", {}) if isinstance(result.get("verify_decision"), dict) else {}
+        if decision.get("merge_ready") is False:
+            tags.append("not-merge-ready")
+    return dedupe_list(tags)
+
+
+def find_task_file(queue_name, name):
+    if queue_name not in QUEUE_DIRS:
+        return None
+    filename = name if name.endswith(".json") else f"{name}.json"
+    path = QUEUE_DIRS[queue_name] / filename
+    return path if path.exists() else None
+
+
+def build_console_summary(tasks, watchdog):
+    failure_categories = {}
+    for task in tasks.get("failed", []):
+        category = task.get("failure_category", "general")
+        failure_categories[category] = failure_categories.get(category, 0) + 1
+
+    return {
+        "ready_to_pr": len(tasks.get("ready-to-pr", [])),
+        "ready_to_push": len(tasks.get("ready-to-push", [])),
+        "needs_human": len(tasks.get("needs-human", [])),
+        "worker_alerts": watchdog["counts"].get("worker_alerts", 0),
+        "failure_categories": sorted(failure_categories.items(), key=lambda item: (-item[1], item[0])),
+    }
+
+
 def refresh_result_for_queue_file(task_file):
     task_file = Path(task_file)
     if not task_file.exists():
@@ -229,9 +309,15 @@ def load_tasks(queue_name):
             task = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+        task_id = task.get("id", path.stem)
+        result_payload = load_result_payload(task_id)
+        result_summary = load_result_summary(task_id)
+        failure_category = classify_failure(task, result=result_payload)
+        log_name = task_log_name(task_id)
+        log_path = LOGS / log_name
         items.append(
             {
-                "id": task.get("id", path.stem),
+                "id": task_id,
                 "title": task.get("title", path.stem),
                 "task_kind": task.get("task_kind", "feature"),
                 "repo": task.get("repo", "-"),
@@ -258,7 +344,12 @@ def load_tasks(queue_name):
                 "allow_ci_changes": task.get("allow_ci_changes", False),
                 "allow_deploy_changes": task.get("allow_deploy_changes", False),
                 "allow_cross_layer_refactor": task.get("allow_cross_layer_refactor", False),
-                "result_summary": load_result_summary(task.get("id", path.stem)),
+                "log_name": log_name,
+                "log_exists": log_path.exists(),
+                "result_summary": result_summary,
+                "result_exists": bool(result_payload),
+                "failure_category": failure_category,
+                "risk_tags": task_risk_tags(task, result=result_payload),
                 "watchdog": build_task_watchdog_info(task.get("id", path.stem), queue_name, task),
             }
         )
@@ -632,6 +723,7 @@ def dashboard_context():
     backlog = compute_backlog_items()
     self_git_ready = (WORKFLOW_ROOT / ".git").exists()
     watchdog = compute_watchdog_summary(apply_actions=False)
+    console_summary = build_console_summary(tasks, watchdog)
 
     return {
         "queue_order": queue_order,
@@ -652,6 +744,7 @@ def dashboard_context():
         "backlog_status_meta": BACKLOG_STATUS_META,
         "self_git_ready": self_git_ready,
         "watchdog": watchdog,
+        "console_summary": console_summary,
     }
 
 
@@ -847,6 +940,34 @@ def result(name):
         size_kb=max(1, stat.st_size // 1024),
         result=payload,
         raw=json.dumps(payload, ensure_ascii=False, indent=2),
+    )
+
+
+@app.get("/task/<queue_name>/<name>")
+def task_detail(queue_name, name):
+    path = find_task_file(queue_name, name)
+    if not path:
+        return "not found", 404
+
+    task = read_json(path, {})
+    task_id = task.get("id", path.stem)
+    result_payload = load_result_payload(task_id)
+    log_path = LOGS / task_log_name(task_id)
+    stat = path.stat()
+    return render_template(
+        "task.html",
+        queue_name=queue_name,
+        task=task,
+        task_id=task_id,
+        task_filename=path.name,
+        task_mtime=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+        result=result_payload,
+        result_exists=bool(result_payload),
+        log_exists=log_path.exists(),
+        log_name=log_path.name,
+        failure_category=classify_failure(task, result=result_payload),
+        risk_tags=task_risk_tags(task, result=result_payload),
+        raw=json.dumps(task, ensure_ascii=False, indent=2),
     )
 
 

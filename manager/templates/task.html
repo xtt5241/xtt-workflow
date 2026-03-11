@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ task.get('title') or task_filename }}</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='dashboard.css') }}" rel="stylesheet">
+</head>
+<body>
+  <main class="container py-4">
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+          <div>
+            <a class="btn btn-outline-light btn-sm mb-3" href="/">
+              <i class="bi bi-arrow-left me-2"></i>返回控制台
+            </a>
+            <h1 class="h3 mb-2">{{ task.get('title') or task_filename }}</h1>
+            <div class="text-secondary">{{ queue_name }} · {{ task_mtime }} · {{ task_filename }}</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 small">
+            {% if task.get('repo') %}<span class="badge text-bg-dark border">{{ task['repo'] }}</span>{% endif %}
+            {% if task.get('base_branch') %}<span class="badge text-bg-dark border">{{ task['base_branch'] }}</span>{% endif %}
+            {% if task.get('type') %}<span class="badge text-bg-dark border">{{ task['type'] }}</span>{% endif %}
+            {% if task.get('role') %}<span class="badge text-bg-dark border">{{ task['role'] }}</span>{% endif %}
+            {% if task.get('lifecycle_state') %}<span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ task['lifecycle_state'] }}</span>{% endif %}
+            <span class="badge text-bg-info-subtle border border-info-subtle text-info-emphasis">{{ queue_name }}</span>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-lg-3">
+            <div class="metric-card">
+              <div class="metric-label">Task ID</div>
+              <div class="fw-semibold text-break">{{ task_id }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-3">
+            <div class="metric-card">
+              <div class="metric-label">Failure Category</div>
+              <div class="fw-semibold">{{ failure_category }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-3">
+            <div class="metric-card">
+              <div class="metric-label">Risk Tags</div>
+              <div class="fw-semibold">{{ risk_tags|length }}</div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-3">
+            <div class="metric-card">
+              <div class="metric-label">Artifacts</div>
+              <div class="fw-semibold">{{ 'result' if result_exists else 'no-result' }} · {{ 'log' if log_exists else 'no-log' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          {% if risk_tags %}
+            {% for tag in risk_tags %}<span class="badge text-bg-dark border">{{ tag }}</span>{% endfor %}
+          {% else %}
+            <span class="text-secondary small">当前没有额外风险标签。</span>
+          {% endif %}
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-4">
+          {% if result_exists %}<a class="btn btn-outline-info" href="/result/{{ task_id }}.json"><i class="bi bi-file-earmark-code me-2"></i>结构化结果</a>{% endif %}
+          {% if log_exists %}<a class="btn btn-outline-light" href="/log/{{ log_name }}"><i class="bi bi-journal-text me-2"></i>执行日志</a>{% endif %}
+          {% if queue_name == 'failed' %}<a class="btn btn-outline-warning" href="/retry/{{ task_filename }}"><i class="bi bi-arrow-repeat me-2"></i>重试</a>{% endif %}
+        </div>
+
+        <div class="row g-4">
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h2 class="h5 mb-3">Task Snapshot</h2>
+                <div class="result-kv-list">
+                  <div><span class="text-secondary">goal</span> · {{ task.get('goal') or '-' }}</div>
+                  <div><span class="text-secondary">branch</span> · {{ task.get('branch') or '-' }}</div>
+                  <div><span class="text-secondary">worktree</span> · {{ task.get('worktree') or '-' }}</div>
+                  <div><span class="text-secondary">status</span> · {{ task.get('status') or '-' }}</div>
+                  <div><span class="text-secondary">lifecycle_state</span> · {{ task.get('lifecycle_state') or '-' }}</div>
+                  <div><span class="text-secondary">backlog_item_id</span> · {{ task.get('backlog_item_id') or '-' }}</div>
+                  <div><span class="text-secondary">human_gate</span> · {{ task.get('human_gate') or '-' }}</div>
+                  <div><span class="text-secondary">human_reason</span> · {{ task.get('human_reason') or '-' }}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h2 class="h5 mb-3">Task Rules</h2>
+                <div class="result-kv-list">
+                  <div><span class="text-secondary">risk_level</span> · {{ task.get('risk_level') or '-' }}</div>
+                  <div><span class="text-secondary">test_strategy_level</span> · {{ task.get('test_strategy_level') or '-' }}</div>
+                  <div><span class="text-secondary">test_strategy_reason</span> · {{ task.get('test_strategy_reason') or '-' }}</div>
+                  <div><span class="text-secondary">evidence_required</span> · {{ (task.get('evidence_required') or [])|join(', ') or '-' }}</div>
+                  <div><span class="text-secondary">allowed_paths</span> · {{ (task.get('allowed_paths') or [])|join(', ') or '-' }}</div>
+                  <div><span class="text-secondary">forbidden_paths</span> · {{ (task.get('forbidden_paths') or [])|join(', ') or '-' }}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% if result_exists %}
+    {% set decision = result.get('verify_decision', {}) %}
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <h2 class="h5 mb-0">Structured Result Snapshot</h2>
+          <a class="btn btn-sm btn-outline-info" href="/result/{{ task_id }}.json">打开完整结果</a>
+        </div>
+        <div class="row g-4">
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Changed Files</h3>
+                {% if result.get('changed_files') %}
+                <ul class="result-list mb-0">
+                  {% for item in result.get('changed_files', []) %}<li><code>{{ item }}</code></li>{% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-secondary small">暂无 changed files。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Verify Decision</h3>
+                <div class="result-kv-list">
+                  <div><span class="text-secondary">summary</span> · {{ decision.get('summary') or result.get('summary') or '-' }}</div>
+                  <div><span class="text-secondary">merge_ready</span> · {{ decision.get('merge_ready') }}</div>
+                  <div><span class="text-secondary">delivery_gate</span> · {{ decision.get('delivery_gate') or '-' }}</div>
+                  <div><span class="text-secondary">label</span> · {{ decision.get('label') or '-' }}</div>
+                  <div><span class="text-secondary">test_strategy</span> · {{ result.get('test_strategy_level') or '-' }}</div>
+                  <div><span class="text-secondary">severity</span> · {{ result.get('severity') or '-' }}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Review Findings</h3>
+                {% if result.get('review_findings') %}
+                <div class="d-flex flex-column gap-3">
+                  {% for item in result.get('review_findings', []) %}
+                  <div class="finding-card">
+                    {% if item is mapping %}
+                    <div class="d-flex flex-wrap gap-2 mb-2 small">
+                      {% if item.get('severity') %}<span class="badge text-bg-warning">{{ item.get('severity') }}</span>{% elif result.get('severity') %}<span class="badge text-bg-warning">{{ result.get('severity') }}</span>{% endif %}
+                      {% if item.get('path') %}<span class="badge text-bg-dark border">{{ item.get('path') }}</span>{% endif %}
+                    </div>
+                    <div class="small text-break">{{ item.get('summary') or item.get('message') or item|tojson }}</div>
+                    {% else %}
+                    <div class="small text-break">{{ item }}</div>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-secondary small">暂无 review findings。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Residual Risks</h3>
+                {% if result.get('residual_risks') %}
+                <ul class="result-list mb-0">
+                  {% for item in result.get('residual_risks', []) %}<li>{{ item }}</li>{% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-secondary small">暂无 residual risks。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Test Results</h3>
+                {% if result.get('test_results') %}
+                <div class="d-flex flex-column gap-3">
+                  {% for item in result.get('test_results', []) %}
+                  <div class="finding-card">
+                    <div class="d-flex flex-wrap gap-2 mb-2 small">
+                      <span class="badge {% if item.get('status') == 'passed' %}text-bg-success{% elif item.get('status') == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ item.get('status') or 'unknown' }}</span>
+                      {% if item.get('duration') %}<span class="badge text-bg-dark border">{{ item.get('duration') }}</span>{% endif %}
+                      {% if item.get('exit_code') is not none %}<span class="badge text-bg-dark border">exit {{ item.get('exit_code') }}</span>{% endif %}
+                    </div>
+                    <div class="small text-break mb-2"><code>{{ item.get('command') }}</code></div>
+                    {% if item.get('cwd') %}<div class="small text-secondary text-break">cwd: {{ item.get('cwd') }}</div>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-secondary small">暂无 test results。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Evidence</h3>
+                {% if result.get('evidence') %}
+                <div class="d-flex flex-column gap-3">
+                  {% for item in result.get('evidence', []) %}
+                  <div class="result-summary">
+                    <div class="d-flex flex-wrap gap-2 mb-2 small">
+                      <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ item.get('type') }}</span>
+                      {% if item.get('label') %}<span class="badge text-bg-dark border">{{ item.get('label') }}</span>{% endif %}
+                    </div>
+                    <div class="small mb-2 text-break">{{ item.get('summary') }}</div>
+                    {% if item.get('items') %}
+                    <ul class="result-list mb-0">
+                      {% for sub in item.get('items', []) %}<li><code>{{ sub }}</code></li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-secondary small">暂无 evidence。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card border-0 shadow-lg overflow-hidden">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <h2 class="h5 mb-0">Raw Task JSON</h2>
+          <div class="small text-secondary">{{ task_filename }}</div>
+        </div>
+        <pre class="result-pre mb-0">{{ raw }}</pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

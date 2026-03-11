@@ -147,3 +147,28 @@ body {
   overflow-y: auto;
   padding-right: 0.25rem;
 }
+
+
+.metric-value-sm {
+  font-size: 1.45rem;
+}
+
+.summary-chip {
+  font-weight: 500;
+}
+
+.task-actions .btn,
+.task-side-actions .btn {
+  min-width: 4.75rem;
+}
+
+.task-side-actions {
+  align-items: stretch;
+}
+
+.finding-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.9rem;
+  padding: 0.9rem 1rem;
+}

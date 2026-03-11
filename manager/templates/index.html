@@ -85,6 +85,51 @@
               <div class="small text-secondary">当前未发现 stuck task。</div>
               {% endif %}
             </div>
+
+            <div class="watchdog-panel mt-4 p-3 rounded-4 border border-secondary-subtle">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                <div>
+                  <div class="small text-uppercase fw-semibold text-success-emphasis mb-1">Console Summary</div>
+                  <div class="text-secondary small">聚焦可交付状态、人工介入与失败分类。</div>
+                </div>
+                <div class="small text-secondary">control view</div>
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-sm-6 col-xl-3">
+                  <div class="metric-card h-100">
+                    <div class="metric-label">Ready to PR</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['ready_to_pr'] }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                  <div class="metric-card h-100">
+                    <div class="metric-label">Ready to Push</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['ready_to_push'] }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                  <div class="metric-card h-100 {% if console_summary['needs_human'] %}metric-alert{% endif %}">
+                    <div class="metric-label">Needs Human</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['needs_human'] }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-xl-3">
+                  <div class="metric-card h-100 {% if console_summary['worker_alerts'] %}metric-alert{% endif %}">
+                    <div class="metric-label">Worker Alerts</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['worker_alerts'] }}</div>
+                  </div>
+                </div>
+              </div>
+              {% if console_summary['failure_categories'] %}
+              <div class="d-flex flex-wrap gap-2">
+                {% for category, count in console_summary['failure_categories'] %}
+                <span class="badge text-bg-dark border summary-chip">{{ category }} · {{ count }}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="small text-secondary">当前没有失败分类数据。</div>
+              {% endif %}
+            </div>
           </div>
           <div class="col-xl-5">
             <div class="card bg-body-tertiary border-0 h-100 shadow-sm">
@@ -324,6 +369,13 @@
                             {% if task['allow_dependency_changes'] or task['allow_migration'] or task['allow_ci_changes'] or task['allow_deploy_changes'] or task['allow_cross_layer_refactor'] %}<div class="small text-secondary text-break">flags: dep={{ 'Y' if task['allow_dependency_changes'] else 'N' }} · mig={{ 'Y' if task['allow_migration'] else 'N' }} · ci={{ 'Y' if task['allow_ci_changes'] else 'N' }} · deploy={{ 'Y' if task['allow_deploy_changes'] else 'N' }} · xlayer={{ 'Y' if task['allow_cross_layer_refactor'] else 'N' }}</div>{% endif %}
                             {% if task['human_reason'] %}<div class="small text-warning-emphasis text-break">human: {{ task['human_reason'] }}</div>{% endif %}
                             {% if task['budget_report'] and task['budget_report'].get('files_changed_count') is not none %}<div class="small text-secondary text-break">budget: {{ task['budget_report'].get('files_changed_count', 0) }}/{{ task['budget_report'].get('max_files', 0) }} files · {{ task['budget_report'].get('total_lines', 0) }}/{{ task['budget_report'].get('max_lines', 0) }} lines</div>{% endif %}
+                            {% if task['failure_category'] and task['failure_category'] != 'general' %}<div class="small text-warning-emphasis text-break">failure: {{ task['failure_category'] }}</div>{% endif %}
+                            {% if task['risk_tags'] %}
+                            <div class="d-flex flex-wrap gap-2 mt-2 small">
+                              {% for tag in task['risk_tags'][:4] %}<span class="badge text-bg-dark border">{{ tag }}</span>{% endfor %}
+                              {% if task['risk_tags']|length > 4 %}<span class="badge text-bg-secondary">+{{ task['risk_tags']|length - 4 }}</span>{% endif %}
+                            </div>
+                            {% endif %}
                             {% if task['result_summary'] %}
                             <div class="result-summary mt-3">
                               <div class="d-flex flex-wrap gap-2 mb-2 small">
@@ -336,26 +388,28 @@
                                 {% if task['result_summary']['review_findings_count'] %}<span class="badge text-bg-dark border">findings {{ task['result_summary']['review_findings_count'] }}</span>{% endif %}
                               </div>
                               {% if task['result_summary']['summary'] %}<div class="small text-info-emphasis text-break mb-2">result: {{ task['result_summary']['summary'] }}</div>{% endif %}
-                              <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <a class="btn btn-sm btn-outline-info" href="/result/{{ task['result_summary']['filename'] }}">结果详情</a>
-                                {% if task['result_summary']['written_at'] %}<div class="small text-secondary">{{ task['result_summary']['written_at'] }}</div>{% endif %}
-                              </div>
+                              {% if task['result_summary']['written_at'] %}<div class="small text-secondary">{{ task['result_summary']['written_at'] }}</div>{% endif %}
                             </div>
                             {% endif %}
                             <div class="small text-secondary text-break">file: {{ task['filename'] }}</div>
+                            <div class="task-actions d-flex flex-wrap gap-2 align-items-center mt-3">
+                              <a class="btn btn-sm btn-outline-light" href="/task/{{ queue_name }}/{{ task['filename'] }}">任务详情</a>
+                              {% if task['result_exists'] %}<a class="btn btn-sm btn-outline-info" href="/result/{{ task['id'] }}.json">结果</a>{% endif %}
+                              {% if task['log_exists'] %}<a class="btn btn-sm btn-outline-secondary" href="/log/{{ task['log_name'] }}">日志</a>{% endif %}
+                            </div>
                           </div>
-                          {% if queue_name == 'failed' %}
-                          <a class="btn btn-sm btn-outline-warning flex-shrink-0" href="/retry/{{ task['filename'] }}">重试</a>
-                          {% elif queue_name == 'needs-human' %}
-                          <div class="d-flex flex-column gap-2 flex-shrink-0">
+                          <div class="d-flex flex-column gap-2 flex-shrink-0 task-side-actions">
+                            {% if queue_name == 'failed' %}
+                            <a class="btn btn-sm btn-outline-warning" href="/retry/{{ task['filename'] }}">重试</a>
+                            {% elif queue_name == 'needs-human' %}
                             <form method="post" action="/human/continue/{{ task['filename'] }}">
                               <button class="btn btn-sm btn-success" type="submit">人工放行</button>
                             </form>
                             <form method="post" action="/human/reject/{{ task['filename'] }}">
                               <button class="btn btn-sm btn-outline-danger" type="submit">转失败</button>
                             </form>
+                            {% endif %}
                           </div>
-                          {% endif %}
                         </div>
                       </div>
                       {% endfor %}

@@ -1,0 +1,109 @@
+{
+  "items": {
+    "P1-01": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-01",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 17:55:18"
+    },
+    "P1-02": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-02",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:02:18"
+    },
+    "P1-03": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-03",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:06:21"
+    },
+    "P1-04": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-04",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:11:50"
+    },
+    "P1-05": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-05",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:16:06"
+    },
+    "P1-06": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-06",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:29:00"
+    },
+    "P1-07": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-07",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:29:00"
+    },
+    "P1-08": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-08",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 18:45:52"
+    },
+    "P1-09": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-09",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 21:50:47"
+    },
+    "P1-10": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p1-10",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 21:53:02"
+    },
+    "P2-01": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p2-01",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 21:57:35"
+    },
+    "P2-02": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p2-02",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 21:59:37"
+    },
+    "P2-03": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p2-03",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-10 22:02:11"
+    },
+    "P2-04": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p2-04",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-11 02:31:27"
+    },
+    "P2-05": {
+      "manual_status": "done",
+      "last_task_id": "manual-direct-p2-05",
+      "repo": "xtt-workflow-direct",
+      "base_branch": "local",
+      "updated_at": "2026-03-11 02:48:12"
+    }
+  }
+}
