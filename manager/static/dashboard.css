@@ -172,3 +172,13 @@ body {
   border-radius: 0.9rem;
   padding: 0.9rem 1rem;
 }
+
+.learn-scroll-list {
+  max-height: 34rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.learn-chip {
+  font-weight: 500;
+}

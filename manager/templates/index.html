@@ -325,6 +325,109 @@
       </div>
     </div>
 
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12">
+        <section class="card border-0 shadow-lg">
+          <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">Post-Task Learn</h2>
+                <p class="text-secondary mb-0">从历史结果自动归纳热点模块、高频问题和下一轮优先任务。每次 result 写入后会自动刷新。</p>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <span class="badge text-bg-info rounded-pill px-3 py-2">{{ learn_report.get('report_window', {}).get('total_results', 0) }} results</span>
+                <a class="btn btn-outline-info" href="/learn">
+                  <i class="bi bi-lightbulb me-2"></i>查看完整学习报告
+                </a>
+              </div>
+            </div>
+
+            {% if learn_report.get('report_window', {}).get('total_results') %}
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">热点模块</div>
+                  <div class="metric-value metric-value-sm">{{ learn_report.get('hotspot_modules', [])|length }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">问题家族</div>
+                  <div class="metric-value metric-value-sm">{{ learn_report.get('issue_families', [])|length }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">补测建议</div>
+                  <div class="metric-value metric-value-sm">{{ learn_report.get('suggested_test_points', [])|length }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100 {% if learn_report.get('low_signal_notes') %}metric-alert{% endif %}">
+                  <div class="metric-label">最近生成</div>
+                  <div class="small text-secondary">{{ learn_report.get('generated_at') or '-' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-start">
+              <div class="col-12 col-xl-4">
+                <div class="finding-card h-100">
+                  <div class="small text-uppercase fw-semibold text-info-emphasis mb-2">热点模块</div>
+                  {% if learn_report.get('hotspot_modules') %}
+                  <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% for item in learn_report.get('hotspot_modules', [])[:4] %}
+                    <span class="badge text-bg-dark border"><code>{{ item['module'] }}</code> · {{ item['score'] }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  <div class="small text-secondary">{{ learn_report.get('hotspot_modules', [{}])[0].get('module') if learn_report.get('hotspot_modules') else '暂无热点模块' }}</div>
+                </div>
+              </div>
+              <div class="col-12 col-xl-4">
+                <div class="finding-card h-100">
+                  <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">高频问题</div>
+                  {% if learn_report.get('issue_families') %}
+                  <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% for item in learn_report.get('issue_families', [])[:4] %}
+                    <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ item['label'] }} · {{ item['count'] }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  {% if learn_report.get('frequent_issues') %}
+                  <div class="small text-secondary text-break">top: {{ learn_report.get('frequent_issues', [])[0]['label'] }}</div>
+                  {% else %}
+                  <div class="small text-secondary">暂无高频问题。</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-12 col-xl-4">
+                <div class="finding-card h-100">
+                  <div class="small text-uppercase fw-semibold text-success-emphasis mb-2">后续建议</div>
+                  {% if learn_report.get('next_task_suggestions') %}
+                  <ul class="result-list mb-0">
+                    {% for item in learn_report.get('next_task_suggestions', [])[:3] %}
+                    <li>{{ item['title'] }}</li>
+                    {% endfor %}
+                  </ul>
+                  {% else %}
+                  <div class="small text-secondary">暂无后续任务建议。</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            {% if learn_report.get('low_signal_notes') %}
+            <div class="alert alert-secondary small mt-3 mb-0">{{ learn_report.get('low_signal_notes', [])[0] }}</div>
+            {% endif %}
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无历史结果，先跑一轮任务后这里会自动出现学习摘要。</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div class="row g-4 align-items-start">
       <div class="col-12 col-xxl-8">
         <section class="card border-0 shadow-lg h-100">

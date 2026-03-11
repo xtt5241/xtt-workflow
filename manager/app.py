@@ -13,6 +13,7 @@ if str(MANAGER_DIR) not in sys.path:
 
 from task_schema import ensure_valid_task
 from repo_profile import load_repo_profile, load_repo_profiles, order_remote_branches, repo_default_branch, repo_profile_summary
+from post_task_learn import REPORT_PATH as POST_TASK_LEARN_REPORT_PATH, load_post_task_learn_report
 from result_writer import result_path_for_task, write_task_result
 from test_strategy import apply_test_strategy
 from watchdog import compute_summary as compute_watchdog_summary, heartbeat_worker as heartbeat_watchdog_worker, load_task_snapshot, role_config as watchdog_role_config
@@ -764,6 +765,7 @@ def dashboard_context():
     self_git_ready = (WORKFLOW_ROOT / ".git").exists()
     watchdog = compute_watchdog_summary(apply_actions=False)
     console_summary = build_console_summary(tasks, watchdog)
+    learn_report = load_post_task_learn_report()
 
     return {
         "queue_order": queue_order,
@@ -785,6 +787,7 @@ def dashboard_context():
         "self_git_ready": self_git_ready,
         "watchdog": watchdog,
         "console_summary": console_summary,
+        "learn_report": learn_report,
     }
 
 
@@ -971,6 +974,25 @@ def log(name):
         mtime=time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
         size_kb=max(1, stat.st_size // 1024),
         content=content,
+    )
+
+
+@app.get("/learn")
+def learn():
+    payload = load_post_task_learn_report()
+    report_path = POST_TASK_LEARN_REPORT_PATH
+    mtime = ""
+    size_kb = 0
+    if report_path.exists():
+        stat = report_path.stat()
+        mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+        size_kb = max(1, stat.st_size // 1024)
+    return render_template(
+        "learn.html",
+        report=payload,
+        mtime=mtime,
+        size_kb=size_kb,
+        raw=json.dumps(payload, ensure_ascii=False, indent=2),
     )
 
 

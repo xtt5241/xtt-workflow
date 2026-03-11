@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post-Task Learn · xtt Workflow Manager</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='dashboard.css') }}" rel="stylesheet">
+</head>
+<body>
+  <main class="container-fluid px-3 px-lg-4 py-4 dashboard-shell">
+    <section class="hero-card card border-0 shadow-lg mb-4 overflow-hidden">
+      <div class="card-body p-4 p-xl-5">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 text-info-emphasis mb-3 small fw-semibold text-uppercase">
+              <i class="bi bi-lightbulb"></i>
+              <span>Post-Task Learn</span>
+            </div>
+            <h1 class="display-6 fw-bold mb-3">任务后学习报告</h1>
+            <p class="lead text-secondary mb-0">从历史 `result.json` 聚合热点模块、高频问题、技术债、建议补测点和下一步任务建议。每次结果写入后自动刷新。</p>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-light" href="/">
+              <i class="bi bi-arrow-left me-2"></i>返回首页
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="row g-4 mb-4">
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">结果总数</div>
+          <div class="metric-value">{{ report.get('report_window', {}).get('total_results', 0) }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">热点模块</div>
+          <div class="metric-value">{{ report.get('hotspot_modules', [])|length }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">高频问题</div>
+          <div class="metric-value">{{ report.get('frequent_issues', [])|length }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100 {% if report.get('low_signal_notes') %}metric-alert{% endif %}">
+          <div class="metric-label">报告生成</div>
+          <div class="small text-secondary mb-2">{{ report.get('generated_at') or '-' }}</div>
+          <div class="small text-secondary">{{ mtime or '-' }} · {{ size_kb or 0 }} KB</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">报告窗口</h2>
+                <p class="text-secondary mb-0">这份报告当前覆盖的历史结果范围。</p>
+              </div>
+              <span class="badge text-bg-info rounded-pill px-3 py-2">auto refresh</span>
+            </div>
+            <div class="result-kv-list small">
+              <div class="result-summary">
+                <div class="text-secondary mb-1">时间范围</div>
+                <div>{{ report.get('report_window', {}).get('earliest_written_at') or '-' }} → {{ report.get('report_window', {}).get('latest_written_at') or '-' }}</div>
+              </div>
+              <div class="result-summary">
+                <div class="text-secondary mb-1">Stage 分布</div>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for key, count in report.get('report_window', {}).get('stage_counts', {}).items() %}
+                  <span class="badge text-bg-dark border">{{ key }} · {{ count }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="result-summary">
+                <div class="text-secondary mb-1">Queue 分布</div>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for key, count in report.get('report_window', {}).get('queue_counts', {}).items() %}
+                  <span class="badge text-bg-dark border">{{ key }} · {{ count }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="result-summary">
+                <div class="text-secondary mb-1">Repo 分布</div>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for key, count in report.get('report_window', {}).get('repo_counts', {}).items() %}
+                  <span class="badge text-bg-dark border">{{ key }} · {{ count }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">问题家族</h2>
+                <p class="text-secondary mb-0">把重复问题收敛成更稳定的治理方向。</p>
+              </div>
+            </div>
+            {% if report.get('issue_families') %}
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              {% for item in report.get('issue_families', []) %}
+              <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis learn-chip">{{ item['label'] }} · {{ item['count'] }}</span>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无足够问题信号</div>
+            {% endif %}
+
+            {% if report.get('low_signal_notes') %}
+            <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">Low Signal Notes</div>
+            <ul class="result-list mb-0">
+              {% for item in report.get('low_signal_notes', []) %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">热点模块</h2>
+                <p class="text-secondary mb-0">按路径证据和文本线索聚合出来的热点区域。</p>
+              </div>
+            </div>
+            {% if report.get('hotspot_modules') %}
+            <div class="d-flex flex-column gap-3">
+              {% for item in report.get('hotspot_modules', []) %}
+              <div class="result-summary">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <div class="fw-semibold"><code>{{ item['module'] }}</code></div>
+                  <div class="d-flex flex-wrap gap-2 small">
+                    <span class="badge text-bg-dark border">score {{ item['score'] }}</span>
+                    <span class="badge text-bg-dark border">results {{ item['result_count'] }}</span>
+                    <span class="badge text-bg-{{ 'success' if item['confidence'] == 'high' else ('warning' if item['confidence'] == 'medium' else 'secondary') }}">{{ item['confidence'] }}</span>
+                  </div>
+                </div>
+                <div class="small text-secondary mb-2">sources: {{ item.get('source_fields', [])|join(', ') }}</div>
+                {% if item.get('example_paths') %}
+                <div class="d-flex flex-wrap gap-2">
+                  {% for path in item.get('example_paths', []) %}
+                  <span class="badge text-bg-dark border"><code>{{ path }}</code></span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无热点模块数据</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">高频问题</h2>
+                <p class="text-secondary mb-0">跨结果重复出现、值得优先治理的问题。</p>
+              </div>
+            </div>
+            {% if report.get('frequent_issues') %}
+            <div class="d-flex flex-column gap-3 learn-scroll-list">
+              {% for item in report.get('frequent_issues', []) %}
+              <div class="finding-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <div class="fw-semibold text-break">{{ item['label'] }}</div>
+                  <div class="d-flex flex-wrap gap-2 small">
+                    <span class="badge text-bg-dark border">count {{ item['count'] }}</span>
+                    <span class="badge text-bg-dark border">tasks {{ item['task_count'] }}</span>
+                    <span class="badge text-bg-{{ 'danger' if item['severity'] == 'high' else ('warning' if item['severity'] == 'medium' else 'secondary') }}">{{ item['severity'] }}</span>
+                  </div>
+                </div>
+                <div class="small text-secondary">sources: {{ item.get('source_fields', [])|join(', ') }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无高频问题</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">技术债</h2>
+                <p class="text-secondary mb-0">来自 residual risk / high risk residual 的沉淀。</p>
+              </div>
+            </div>
+            {% if report.get('technical_debt') %}
+            <div class="d-flex flex-column gap-3 learn-scroll-list">
+              {% for item in report.get('technical_debt', []) %}
+              <div class="finding-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <div class="fw-semibold text-break">{{ item['label'] }}</div>
+                  <div class="d-flex flex-wrap gap-2 small">
+                    <span class="badge text-bg-dark border">count {{ item['count'] }}</span>
+                    <span class="badge text-bg-dark border">tasks {{ item['task_count'] }}</span>
+                    <span class="badge text-bg-{{ 'danger' if item['severity'] == 'high' else ('warning' if item['severity'] == 'medium' else 'secondary') }}">{{ item['severity'] }}</span>
+                  </div>
+                </div>
+                <div class="small text-secondary">sources: {{ item.get('source_fields', [])|join(', ') }}</div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无技术债条目</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xxl-6">
+        <section class="card border-0 shadow-lg h-100">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">建议补测点</h2>
+                <p class="text-secondary mb-0">结合历史缺口自动归纳出来的高价值补测建议。</p>
+              </div>
+            </div>
+            {% if report.get('suggested_test_points') %}
+            <div class="d-flex flex-column gap-3 learn-scroll-list">
+              {% for item in report.get('suggested_test_points', []) %}
+              <div class="result-summary">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                  <div class="fw-semibold text-break">{{ item['title'] }}</div>
+                  <span class="badge text-bg-dark border">count {{ item['count'] }}</span>
+                </div>
+                <div class="small text-secondary mb-2">{{ item['reason'] }}</div>
+                {% if item.get('signals') %}
+                <div class="d-flex flex-wrap gap-2">
+                  {% for signal in item.get('signals', []) %}
+                  <span class="badge text-bg-dark border">{{ signal }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无补测建议</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12">
+        <section class="card border-0 shadow-lg">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">后续任务建议</h2>
+                <p class="text-secondary mb-0">把当前学习结果转成下一轮更容易落地的 backlog 候选。</p>
+              </div>
+            </div>
+            {% if report.get('next_task_suggestions') %}
+            <div class="row g-3">
+              {% for item in report.get('next_task_suggestions', []) %}
+              <div class="col-12 col-lg-6 col-xxl-4">
+                <div class="finding-card h-100">
+                  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div class="fw-semibold text-break">{{ item['title'] }}</div>
+                    <span class="badge text-bg-{{ 'danger' if item['priority'] == 'high' else ('warning' if item['priority'] == 'medium' else 'secondary') }}">{{ item['priority'] }}</span>
+                  </div>
+                  <div class="small text-secondary mb-2">{{ item['reason'] }}</div>
+                  {% if item.get('signals') %}
+                  <div class="d-flex flex-wrap gap-2">
+                    {% for signal in item.get('signals', []) %}
+                    <span class="badge text-bg-dark border">{{ signal }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无后续任务建议</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section class="card border-0 shadow-lg overflow-hidden">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h2 class="h4 mb-1">Raw JSON</h2>
+            <p class="text-secondary mb-0">用于排查学习报告聚合逻辑。</p>
+          </div>
+        </div>
+        <pre class="result-pre mb-0">{{ raw }}</pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
