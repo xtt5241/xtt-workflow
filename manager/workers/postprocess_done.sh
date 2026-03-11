@@ -27,6 +27,16 @@ worktree_name() {
   printf '%s-wt-%s' "$repo" "$stage"
 }
 
+done_lifecycle_state() {
+  local type="$1"
+  case "$type" in
+    build) printf 'build-done' ;;
+    review) printf 'review-done' ;;
+    verify) printf 'verify-done' ;;
+    *) printf 'delivered' ;;
+  esac
+}
+
 queue_ready_gate() {
   local source_file="$1"
   local gate_dir="$2"
@@ -48,7 +58,8 @@ queue_ready_gate() {
         "gate_repo": $repo,
         "gate_base_branch": $base_branch,
         "gate_branch": $branch,
-        "status": "pending"
+        "status": $gate_status,
+        "lifecycle_state": $gate_status
       }' "$source_file" > "$gate_file"
   write_result "$gate_file"
 }
@@ -58,20 +69,26 @@ move_done_to_needs_human() {
   local gate="$2"
   local report_path="$3"
   local target="$NEEDS_HUMAN/$(basename "$source_file")"
+  local lifecycle
+  lifecycle="$(done_lifecycle_state "$(jq -r '.type' "$source_file")")"
 
   if [ -f "$report_path" ]; then
     jq --slurpfile report "$report_path" \
        --arg gate "$gate" \
+       --arg lifecycle "$lifecycle" \
        --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
        '.status = "needs-human"
+        | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = (($report[0].summary // "needs human review"))
         | .dod_report = ($report[0] // {})
         | .human_updated_at = $updated_at' "$source_file" > "$target"
   else
     jq --arg gate "$gate" \
+       --arg lifecycle "$lifecycle" \
        --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
        '.status = "needs-human"
+        | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = "needs human review"
         | .human_updated_at = $updated_at' "$source_file" > "$target"
@@ -136,6 +153,7 @@ for f in "$DONE"/*.json; do
   "prompt_file": "review_prompt.md",
   "role": "reviewer",
   "status": "pending",
+  "lifecycle_state": "routed",
   "retry_count": 0,
   "depends_on": ["$id"]
 }
@@ -176,6 +194,7 @@ JSON
   "prompt_file": "verify_prompt.md",
   "role": "verifier",
   "status": "pending",
+  "lifecycle_state": "routed",
   "retry_count": 0,
   "depends_on": ["$id"]
 }

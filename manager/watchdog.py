@@ -355,9 +355,11 @@ def move_stuck_task(task_info: dict) -> dict | None:
     task["watchdog_detected_at"] = report.get("detected_at")
     if queue_name == "failed":
         task["status"] = "failed"
+        task["lifecycle_state"] = "failed-watchdog"
         task["failure_reason"] = f"watchdog:{task['watchdog_reason']}"
     else:
         task["status"] = "needs-human"
+        task["lifecycle_state"] = "failed-watchdog"
         task["human_gate"] = "watchdog"
         task["human_reason"] = f"watchdog: {task['watchdog_reason']}"
         task["human_updated_at"] = report.get("detected_at")

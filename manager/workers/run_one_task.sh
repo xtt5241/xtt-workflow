@@ -30,7 +30,6 @@ TASK_FILE="$({
 BASENAME="$(basename "$TASK_FILE")"
 RUNNING_FILE="$QUEUE_RUNNING/$BASENAME"
 mv "$TASK_FILE" "$RUNNING_FILE"
-jq '.status = "running"' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
 
 TASK_ID="$(jq -r '.id' "$RUNNING_FILE")"
 TITLE="$(jq -r '.title' "$RUNNING_FILE")"
@@ -41,6 +40,7 @@ if ! python3 "$ROOT/manager/task_schema.py" validate "$RUNNING_FILE" >> "$LOG_PA
 fi
 
 REPO="$(jq -r '.repo' "$RUNNING_FILE")"
+TYPE="$(jq -r '.type' "$RUNNING_FILE")"
 WORKTREE="$(jq -r '.worktree' "$RUNNING_FILE")"
 BRANCH="$(jq -r '.branch' "$RUNNING_FILE")"
 BASE_BRANCH="$(jq -r '.base_branch' "$RUNNING_FILE")"
@@ -129,9 +129,42 @@ finish_task_watchdog() {
 
 trap stop_task_watchdog EXIT
 
+running_lifecycle_state() {
+  case "$TYPE" in
+    build) printf 'building' ;;
+    review) printf 'reviewing' ;;
+    verify) printf 'verifying' ;;
+    *) printf 'routed' ;;
+  esac
+}
+
+done_lifecycle_state() {
+  case "$TYPE" in
+    build) printf 'build-done' ;;
+    review) printf 'review-done' ;;
+    verify) printf 'verify-done' ;;
+    *) printf 'delivered' ;;
+  esac
+}
+
+failed_lifecycle_state() {
+  case "$TYPE" in
+    build) printf 'failed-build' ;;
+    review) printf 'failed-review' ;;
+    verify) printf 'failed-verify' ;;
+    *) printf 'failed-postprocess' ;;
+  esac
+}
+
+RUNNING_LIFECYCLE="$(running_lifecycle_state)"
+DONE_LIFECYCLE="$(done_lifecycle_state)"
+FAILED_LIFECYCLE="$(failed_lifecycle_state)"
+
+jq --arg lifecycle "$RUNNING_LIFECYCLE" '.status = "running" | .lifecycle_state = $lifecycle' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
+
 fail_task() {
   if [ -f "$RUNNING_FILE" ]; then
-    jq '.status = "failed"' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
+    jq --arg lifecycle "$FAILED_LIFECYCLE" '.status = "failed" | .lifecycle_state = $lifecycle' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
     write_result "$RUNNING_FILE"
   fi
   finish_task_watchdog "failed" "failed"
@@ -146,16 +179,20 @@ move_to_needs_human() {
   if [ -f "$report_path" ]; then
     jq --slurpfile report "$report_path" \
        --arg gate "$gate" \
+       --arg lifecycle "$DONE_LIFECYCLE" \
        --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
        '.status = "needs-human"
+        | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = (($report[0].summary // "needs human review"))
         | .budget_report = ($report[0] // {})
         | .human_updated_at = $updated_at' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
   else
     jq --arg gate "$gate" \
+       --arg lifecycle "$DONE_LIFECYCLE" \
        --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
        '.status = "needs-human"
+        | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = "needs human review"
         | .human_updated_at = $updated_at' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
@@ -247,7 +284,7 @@ if [ "$EXIT_CODE" -eq 0 ]; then
   if ! commit_builder_changes; then
     fail_task
   fi
-  jq '.status = "done"' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
+  jq --arg lifecycle "$DONE_LIFECYCLE" '.status = "done" | .lifecycle_state = $lifecycle' "$RUNNING_FILE" > "$RUNNING_FILE.tmp" && mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
   write_result "$RUNNING_FILE"
   finish_task_watchdog "done" "done"
   mv "$RUNNING_FILE" "$QUEUE_DONE/$BASENAME"
@@ -262,7 +299,7 @@ if grep -qi '429\|rate limit\|too many requests' "$LOG_PATH" && [ "$RETRY_COUNT"
     2) SLEEP_SECS=120 ;;
     *) SLEEP_SECS=240 ;;
   esac
-  jq --arg branch "$NEW_BRANCH" '.retry_count = (.retry_count + 1) | .branch = $branch | .status = "pending"' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
+  jq --arg branch "$NEW_BRANCH" '.retry_count = (.retry_count + 1) | .branch = $branch | .status = "pending" | .lifecycle_state = "routed"' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
   mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
   printf 'retry scheduled with new branch: %s\n' "$NEW_BRANCH" >> "$LOG_PATH"
   finish_task_watchdog "pending" "pending"

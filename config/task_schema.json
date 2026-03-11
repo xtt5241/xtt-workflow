@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "field_order": [
     "id",
     "type",
@@ -31,6 +31,7 @@
     "prompt_file",
     "role",
     "status",
+    "lifecycle_state",
     "retry_count",
     "depends_on"
   ],
@@ -75,6 +76,7 @@
       "prompt_file",
       "role",
       "status",
+      "lifecycle_state",
       "retry_count",
       "depends_on"
     ],
@@ -111,6 +113,7 @@
     "prompt_file": "string",
     "role": "string",
     "status": "string",
+    "lifecycle_state": "string",
     "retry_count": "integer",
     "depends_on": "string_array",
     "allow_dependency_changes": "boolean",
@@ -135,8 +138,33 @@
     "status": [
       "pending",
       "running",
+      "needs-human",
+      "ready-to-pr",
+      "ready-to-push",
+      "ready-to-release",
       "done",
-      "failed"
+      "failed",
+      "delivered"
+    ],
+    "lifecycle_state": [
+      "queued",
+      "spec-ready",
+      "routed",
+      "building",
+      "build-done",
+      "reviewing",
+      "review-done",
+      "verifying",
+      "verify-done",
+      "ready-to-push",
+      "ready-to-pr",
+      "ready-to-release",
+      "delivered",
+      "failed-build",
+      "failed-review",
+      "failed-verify",
+      "failed-watchdog",
+      "failed-postprocess"
     ],
     "risk_level": [
       "low",
@@ -155,6 +183,7 @@
       "task_kind": "feature",
       "dod_summary": "",
       "status": "pending",
+      "lifecycle_state": "queued",
       "retry_count": 0,
       "depends_on": [],
       "risk_level": "medium",

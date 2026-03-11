@@ -280,6 +280,33 @@ def infer_queue_name(task_path: Path, task: dict) -> str:
     return queue_name or task_status or "unknown"
 
 
+def effective_status(task: dict, queue_name: str) -> str:
+    status = str(task.get("status", "")).strip()
+    return queue_name if queue_name in QUEUE_NAMES else (status or "pending")
+
+
+def effective_lifecycle_state(task: dict, queue_name: str) -> str:
+    lifecycle_state = str(task.get("lifecycle_state", "")).strip()
+    task_type = str(task.get("type", "")).strip()
+    if lifecycle_state and lifecycle_state not in {"queued", "routed"}:
+        return lifecycle_state
+    if queue_name == "pending":
+        return "routed"
+    if queue_name == "running":
+        return {"build": "building", "review": "reviewing", "verify": "verifying"}.get(task_type, "routed")
+    if queue_name == "done":
+        return {"build": "build-done", "review": "review-done", "verify": "verify-done"}.get(task_type, "delivered")
+    if queue_name == "needs-human":
+        return "failed-watchdog" if str(task.get("watchdog_reason", "")).strip() else {"build": "build-done", "review": "review-done", "verify": "verify-done"}.get(task_type, "delivered")
+    if queue_name in {"ready-to-pr", "ready-to-push", "ready-to-release", "delivered"}:
+        return queue_name
+    if queue_name == "failed":
+        if str(task.get("watchdog_reason", "")).strip() or str(task.get("failure_reason", "")).startswith("watchdog:"):
+            return "failed-watchdog"
+        return {"build": "failed-build", "review": "failed-review", "verify": "failed-verify"}.get(task_type, "failed-postprocess")
+    return lifecycle_state or "queued"
+
+
 def infer_merge_ready(text: str) -> bool | None:
     lowered = text.lower()
     if not lowered:
@@ -423,6 +450,8 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
     tail_text = "\n".join(log_text.splitlines()[-400:])
     sections = parse_sections(tail_text)
     queue_name = infer_queue_name(task_path, task)
+    resolved_status = effective_status(task, queue_name)
+    resolved_lifecycle = effective_lifecycle_state(task, queue_name)
     test_results = extract_test_results(log_text, existing.get("test_results"))
     summary = last_summary_text(sections) or str(task.get("human_reason", "")).strip() or existing.get("summary", "") or task.get("title", "")
     repo = str(task.get("repo", "")).strip()
@@ -443,7 +472,8 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
         "branch": str(task.get("branch", "")).strip(),
         "source_ref": str(task.get("source_ref", "")).strip(),
         "worktree": str(task.get("worktree", "")).strip(),
-        "status": str(task.get("status", "")).strip(),
+        "status": resolved_status,
+        "lifecycle_state": resolved_lifecycle,
         "queue": queue_name,
         "written_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
         "summary": summary,

@@ -304,6 +304,7 @@
                               <span class="badge text-bg-dark border">{{ task['role'] }}</span>
                               <span class="badge text-bg-dark border">{{ task['type'] }}</span>
                               <span class="badge text-bg-dark border">{{ task['task_kind'] }}</span>
+                              {% if task['lifecycle_state'] %}<span class="badge text-bg-{{ task['lifecycle_meta']['tone'] }}">{{ task['lifecycle_meta']['label'] }}</span>{% endif %}
                               {% if task['retry_count'] %}
                               <span class="badge text-bg-warning">retry {{ task['retry_count'] }}</span>
                               {% endif %}

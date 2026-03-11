@@ -35,8 +35,31 @@ QUEUE_META = {
     "needs-human": {"label": "待人工处理", "tone": "info", "icon": "person-raised-hand"},
     "ready-to-pr": {"label": "待人工 PR", "tone": "secondary", "icon": "git"},
     "ready-to-push": {"label": "待人工 Push", "tone": "secondary", "icon": "cloud-arrow-up"},
+    "ready-to-release": {"label": "待发布", "tone": "secondary", "icon": "rocket-takeoff"},
+    "delivered": {"label": "已交付", "tone": "success", "icon": "send-check"},
     "done": {"label": "已完成", "tone": "success", "icon": "check-circle"},
     "failed": {"label": "已失败", "tone": "danger", "icon": "x-octagon"},
+}
+
+LIFECYCLE_META = {
+    "queued": {"label": "Queued", "tone": "secondary"},
+    "spec-ready": {"label": "Spec Ready", "tone": "info"},
+    "routed": {"label": "Routed", "tone": "primary"},
+    "building": {"label": "Building", "tone": "primary"},
+    "build-done": {"label": "Build Done", "tone": "success"},
+    "reviewing": {"label": "Reviewing", "tone": "primary"},
+    "review-done": {"label": "Review Done", "tone": "success"},
+    "verifying": {"label": "Verifying", "tone": "primary"},
+    "verify-done": {"label": "Verify Done", "tone": "success"},
+    "ready-to-pr": {"label": "Ready To PR", "tone": "secondary"},
+    "ready-to-push": {"label": "Ready To Push", "tone": "secondary"},
+    "ready-to-release": {"label": "Ready To Release", "tone": "secondary"},
+    "delivered": {"label": "Delivered", "tone": "success"},
+    "failed-build": {"label": "Failed Build", "tone": "danger"},
+    "failed-review": {"label": "Failed Review", "tone": "danger"},
+    "failed-verify": {"label": "Failed Verify", "tone": "danger"},
+    "failed-watchdog": {"label": "Failed Watchdog", "tone": "danger"},
+    "failed-postprocess": {"label": "Failed Postprocess", "tone": "danger"},
 }
 
 BACKLOG_STATUS_META = {
@@ -48,7 +71,51 @@ BACKLOG_STATUS_META = {
     "blocked": {"label": "已阻塞", "tone": "dark"},
 }
 
-QUEUE_DIRS = {name: QUEUE / name for name in ("pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "done", "failed")}
+QUEUE_DIRS = {name: QUEUE / name for name in ("pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "ready-to-release", "delivered", "done", "failed")}
+
+
+def lifecycle_meta(name):
+    return LIFECYCLE_META.get(name, {"label": name or "-", "tone": "secondary"})
+
+
+def stage_done_state(task_type):
+    return {"build": "build-done", "review": "review-done", "verify": "verify-done"}.get(task_type, "delivered")
+
+
+def failed_state(task):
+    if str(task.get("watchdog_reason", "")).strip() or str(task.get("failure_reason", "")).startswith("watchdog:"):
+        return "failed-watchdog"
+    return {"build": "failed-build", "review": "failed-review", "verify": "failed-verify"}.get(task.get("type"), "failed-postprocess")
+
+
+def running_state(task_type):
+    return {"build": "building", "review": "reviewing", "verify": "verifying"}.get(task_type, "routed")
+
+
+def effective_task_status(task, queue_name):
+    status = str(task.get("status", "")).strip()
+    if queue_name in QUEUE_META:
+        return queue_name
+    return status or "pending"
+
+
+def effective_lifecycle_state(task, queue_name):
+    lifecycle_state = str(task.get("lifecycle_state", "")).strip()
+    if lifecycle_state and lifecycle_state not in {"queued", "routed"}:
+        return lifecycle_state
+    if queue_name == "pending":
+        return "routed"
+    if queue_name == "running":
+        return running_state(task.get("type"))
+    if queue_name == "done":
+        return stage_done_state(task.get("type"))
+    if queue_name == "needs-human":
+        return "failed-watchdog" if str(task.get("watchdog_reason", "")).strip() else stage_done_state(task.get("type"))
+    if queue_name in {"ready-to-pr", "ready-to-push", "ready-to-release", "delivered"}:
+        return queue_name
+    if queue_name == "failed":
+        return failed_state(task)
+    return lifecycle_state or "queued"
 
 
 def ensure_state_dir():
@@ -170,6 +237,9 @@ def load_tasks(queue_name):
                 "repo": task.get("repo", "-"),
                 "role": task.get("role", "-"),
                 "type": task.get("type", "-"),
+                "status": effective_task_status(task, queue_name),
+                "lifecycle_state": effective_lifecycle_state(task, queue_name),
+                "lifecycle_meta": lifecycle_meta(effective_lifecycle_state(task, queue_name)),
                 "base_branch": task.get("base_branch", "-"),
                 "branch": task.get("branch", ""),
                 "worktree": task.get("worktree", "-"),
@@ -470,6 +540,9 @@ def compute_backlog_items():
 
 
 def queue_task(task):
+    task = dict(task)
+    task["status"] = "pending"
+    task["lifecycle_state"] = "routed"
     task = ensure_valid_task(task)
     out = QUEUE / "pending" / f"{task['id']}.json"
     out.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -514,6 +587,7 @@ def create_standard_task(title, repo, base_branch, prompt_file="build_prompt.md"
         "prompt_file": prompt_file,
         "role": "builder",
         "status": "pending",
+        "lifecycle_state": "queued",
         "retry_count": 0,
         "depends_on": [],
     }
@@ -562,6 +636,7 @@ def dashboard_context():
     return {
         "queue_order": queue_order,
         "queue_meta": QUEUE_META,
+        "lifecycle_meta": LIFECYCLE_META,
         "tasks": tasks,
         "queue_counts": queue_counts,
         "logs": logs,
@@ -695,6 +770,7 @@ def retry(name):
     if task.get("branch"):
         task["branch"] = next_retry_branch(task.get("branch", ""), retry_count)
     task["status"] = "pending"
+    task["lifecycle_state"] = "routed"
     out = QUEUE / "pending" / name
     out.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
     src.unlink()
@@ -709,6 +785,7 @@ def human_continue(name):
 
     task = json.loads(src.read_text(encoding="utf-8"))
     task["status"] = "done"
+    task["lifecycle_state"] = stage_done_state(task.get("type"))
     task["human_override"] = True
     task["human_resolution"] = "continued"
     task["human_updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -727,6 +804,7 @@ def human_reject(name):
 
     task = json.loads(src.read_text(encoding="utf-8"))
     task["status"] = "failed"
+    task["lifecycle_state"] = failed_state(task)
     task["human_resolution"] = "rejected"
     task["human_updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     out = QUEUE / "failed" / name

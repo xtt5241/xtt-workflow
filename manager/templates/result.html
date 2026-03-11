@@ -25,6 +25,7 @@
             {% if result.get('stage') %}<span class="badge text-bg-dark border">{{ result['stage'] }}</span>{% endif %}
             {% if result.get('repo') %}<span class="badge text-bg-dark border">{{ result['repo'] }}</span>{% endif %}
             {% if result.get('base_branch') %}<span class="badge text-bg-dark border">{{ result['base_branch'] }}</span>{% endif %}
+            {% if result.get('lifecycle_state') %}<span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ result['lifecycle_state'] }}</span>{% endif %}
             {% if result.get('queue') %}<span class="badge text-bg-info-subtle border border-info-subtle text-info-emphasis">{{ result['queue'] }}</span>{% endif %}
           </div>
         </div>

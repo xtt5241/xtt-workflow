@@ -118,6 +118,59 @@ def _default_acceptance(task: dict) -> list[str]:
     ]
 
 
+def _stage_running_state(task_type: str) -> str:
+    return {
+        "build": "building",
+        "review": "reviewing",
+        "verify": "verifying",
+    }.get(task_type, "routed")
+
+
+def _stage_done_state(task_type: str) -> str:
+    return {
+        "build": "build-done",
+        "review": "review-done",
+        "verify": "verify-done",
+    }.get(task_type, "delivered")
+
+
+def _stage_failed_state(task_type: str) -> str:
+    return {
+        "build": "failed-build",
+        "review": "failed-review",
+        "verify": "failed-verify",
+    }.get(task_type, "failed-postprocess")
+
+
+def _default_lifecycle_state(task: dict) -> str:
+    task_type = str(task.get("type", "")).strip()
+    status = str(task.get("status", "pending")).strip() or "pending"
+
+    if status == "running":
+        return _stage_running_state(task_type)
+    if status == "done":
+        return _stage_done_state(task_type)
+    if status == "failed":
+        if str(task.get("watchdog_reason", "")).strip() or str(task.get("failure_reason", "")).startswith("watchdog:"):
+            return "failed-watchdog"
+        return _stage_failed_state(task_type)
+    if status == "needs-human":
+        if str(task.get("watchdog_reason", "")).strip():
+            return "failed-watchdog"
+        return _stage_done_state(task_type)
+    if status == "ready-to-pr":
+        return "ready-to-pr"
+    if status == "ready-to-push":
+        return "ready-to-push"
+    if status == "ready-to-release":
+        return "ready-to-release"
+    if status == "delivered":
+        return "delivered"
+    if task_type in {"build", "review", "verify"}:
+        return "routed"
+    return "queued"
+
+
 def order_task_fields(task: dict, schema: dict | None = None) -> dict:
     schema = schema or load_task_schema()
     ordered = {}
@@ -144,7 +197,11 @@ def normalize_task(task: dict, schema: dict | None = None) -> dict:
         normalized["role"] = schema["role_by_type"].get(task_type, "")
     if task_type and not normalized.get("prompt_file"):
         normalized["prompt_file"] = schema["prompt_file_by_type"].get(task_type, "")
+    if task_type in {"review", "verify"} and not str(normalized.get("source_ref", "")).strip() and str(normalized.get("branch", "")).strip():
+        normalized["source_ref"] = str(normalized.get("branch", "")).strip()
     normalized["task_kind"] = normalize_task_kind(normalized.get("task_kind"))
+    if not str(normalized.get("lifecycle_state", "")).strip():
+        normalized["lifecycle_state"] = _default_lifecycle_state(normalized)
     if not str(normalized.get("dod_summary", "")).strip():
         normalized["dod_summary"] = dod_summary(normalized["task_kind"])
     if not str(normalized.get("goal", "")).strip():
