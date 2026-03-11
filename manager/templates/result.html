@@ -169,6 +169,30 @@
     </section>
     {% endif %}
 
+    {% if result.get('risk_check_summary') or result.get('required_validation_actions') or result.get('high_risk_residuals') %}
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <h2 class="h5 mb-0">Risk Checker</h2>
+          <span class="badge text-bg-warning">strict verify</span>
+        </div>
+        {% if result.get('risk_check_summary') %}<div class="small text-secondary mb-3">{{ result.get('risk_check_summary') }}</div>{% endif %}
+        {% if result.get('required_validation_actions') %}
+        <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">Required Validation</div>
+        <ul class="result-list mb-3">
+          {% for item in result.get('required_validation_actions', []) %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if result.get('high_risk_residuals') %}
+        <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">Residual Risks</div>
+        <ul class="result-list mb-0">
+          {% for item in result.get('high_risk_residuals', []) %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
     {% if result.get('similar_impl_paths') or result.get('pattern_finder_summary') %}
     <section class="card border-0 shadow-lg overflow-hidden mb-4">
       <div class="card-body p-4 p-lg-5">

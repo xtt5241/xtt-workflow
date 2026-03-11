@@ -1,0 +1,4 @@
+interface:
+  display_name: "Risk Checker"
+  short_description: "Score high-risk tasks and extra checks"
+  default_prompt: "Use $risk-checker to score task risk and add stricter verification actions."

@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "field_order": [
     "id",
     "type",
@@ -24,6 +24,10 @@
     "env_risk_summary",
     "env_risk_report",
     "risk_signals",
+    "required_validation_actions",
+    "high_risk_residuals",
+    "risk_check_summary",
+    "risk_check_report",
     "allow_auto_commit",
     "allow_push",
     "allow_pr",
@@ -139,7 +143,11 @@
     "tool_router": "object",
     "similar_impl_paths": "string_array",
     "pattern_finder_summary": "string",
-    "pattern_finder": "object"
+    "pattern_finder": "object",
+    "required_validation_actions": "string_array",
+    "high_risk_residuals": "string_array",
+    "risk_check_summary": "string",
+    "risk_check_report": "object"
   },
   "enums": {
     "type": [

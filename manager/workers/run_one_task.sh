@@ -311,6 +311,17 @@ if [ "$ROLE" = "builder" ] && [ "$TYPE" = "build" ]; then
   fi
 fi
 
+if [ "$ROLE" = "verifier" ] && [ "$TYPE" = "verify" ]; then
+  if ! python3 "$ROOT/skills/risk-checker/scripts/assess_verify_risk.py" --repo-path "$WORKTREE_PATH" --task-json "$RUNNING_FILE" --write-task >> "$LOG_PATH" 2>&1
+  then
+    fail_task
+  fi
+  if ! python3 "$ROOT/manager/test_strategy.py" apply "$RUNNING_FILE" --in-place >> "$LOG_PATH" 2>&1
+  then
+    fail_task
+  fi
+fi
+
 if ! python3 "$ROOT/manager/task_schema.py" render-prompt "$RUNNING_FILE" "$PROMPT_PATH" "$PROMPT_TMP" >> "$LOG_PATH" 2>&1
 then
   fail_task

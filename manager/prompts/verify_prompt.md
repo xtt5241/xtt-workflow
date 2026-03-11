@@ -1,5 +1,5 @@
 Prompt Name: verify
-Prompt Version: 2
+Prompt Version: 3
 
 请验证当前任务对象定义的改动是否真的可用。
 
@@ -37,6 +37,15 @@ Tool Router：
 
 风险报告：
 {{env_risk_report}}
+
+Risk Checker：
+{{risk_check_summary}}
+
+必补验证动作：
+{{required_validation_actions}}
+
+高风险残余项：
+{{high_risk_residuals}}
 
 建议测试层级：{{test_strategy_level}}
 测试层级原因：{{test_strategy_reason}}
