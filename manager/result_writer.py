@@ -17,7 +17,7 @@ REPO_CONFIG_DIR = WORKFLOW_ROOT / "config" / "repos"
 TASK_SCHEMA_PATH = WORKFLOW_ROOT / "config" / "task_schema.json"
 RESULT_SCHEMA_PATH = WORKFLOW_ROOT / "config" / "result_schema.json"
 PROMPT_BUNDLE_FILES = ("build_prompt.md", "review_prompt.md", "verify_prompt.md", "plan_prompt.md", "backlog_build_prompt.md")
-QUEUE_NAMES = {"pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "done", "failed"}
+QUEUE_NAMES = {"pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "ready-to-release", "delivered", "done", "failed"}
 TEST_COMMAND_RE = re.compile(
     r"(pytest|unittest|vitest|jest|playwright|cypress|go test|cargo test|npm(?:\s+run)?\s+(?:test|build)|"
     r"pnpm(?:\s+run)?\s+(?:test|build)|yarn\s+(?:test|build)|make\s+(?:test|build)|"
@@ -371,10 +371,10 @@ def extract_verify_decision(task: dict, sections: list[dict], queue_name: str, e
     decision_text = " ".join(decision_items).strip()
     merge_ready = infer_merge_ready(decision_text)
 
-    if queue_name in {"ready-to-pr", "ready-to-push"}:
+    if queue_name in {"ready-to-pr", "ready-to-push", "ready-to-release", "delivered"}:
         merge_ready = True
         if not decision_text:
-            decision_text = "verify passed and moved to delivery gate"
+            decision_text = "delivery gate ready" if queue_name != "delivered" else "delivery completed by human gate"
     elif queue_name in {"needs-human", "failed"} and task.get("type") == "verify" and merge_ready is None:
         merge_ready = False
 
@@ -507,6 +507,76 @@ def result_path_for_task(task_id: str) -> Path:
     return RESULTS_DIR / f"{task_id}.json"
 
 
+def _join_lines(lines: list[str]) -> str:
+    return "\n".join(line for line in lines if str(line).strip())
+
+
+def build_delivery_artifacts(payload: dict, sections: list[dict]) -> dict:
+    changed_files = payload.get("changed_files", []) if isinstance(payload.get("changed_files"), list) else []
+    residual_risks = payload.get("residual_risks", []) if isinstance(payload.get("residual_risks"), list) else []
+    risk_signals = payload.get("risk_signals", []) if isinstance(payload.get("risk_signals"), list) else []
+    test_results = payload.get("test_results", []) if isinstance(payload.get("test_results"), list) else []
+    passed = sum(1 for item in test_results if isinstance(item, dict) and item.get("status") == "passed")
+    test_summary = f"{passed}/{len(test_results)} structured commands passed" if test_results else "No structured test results captured"
+
+    pr_section = section_items(sections, ["pr description", "pull request", "pr_description"])
+    if pr_section:
+        pr_description = _join_lines(pr_section)
+    else:
+        pr_lines = [
+            "## Summary",
+            payload.get("summary") or payload.get("title") or "Update",
+            "",
+            "## Changed Files",
+        ]
+        if changed_files:
+            pr_lines.extend([f"- `{item}`" for item in changed_files[:12]])
+        else:
+            pr_lines.append("- No structured changed files captured")
+        pr_lines.extend(["", "## Validation", f"- {test_summary}"])
+        if residual_risks:
+            pr_lines.append("")
+            pr_lines.append("## Residual Risks")
+            pr_lines.extend([f"- {item}" for item in residual_risks[:5]])
+        pr_description = _join_lines(pr_lines)
+
+    release_section = section_items(sections, ["release note", "release notes", "release_note"])
+    if release_section:
+        release_note = _join_lines(release_section)
+    else:
+        release_lines = [f"- {payload.get('summary') or payload.get('title') or 'Update available'}"]
+        if changed_files:
+            release_lines.append(f"- Changed files: {', '.join(changed_files[:5])}")
+        if risk_signals:
+            release_lines.append(f"- Watch items: {', '.join(risk_signals[:5])}")
+        release_note = _join_lines(release_lines)
+
+    rollback_section = section_items(sections, ["rollback note", "回滚方案", "rollback"])
+    if rollback_section:
+        rollback_note = _join_lines(rollback_section)
+    else:
+        rollback_lines = []
+        branch = str(payload.get("branch", "")).strip()
+        if branch:
+            rollback_lines.append(f"- Revert branch `{branch}` and restore the previous stable revision")
+        else:
+            rollback_lines.append("- Revert the change set and restore the previous stable revision")
+        env_risk_report = payload.get("env_risk_report", {}) if isinstance(payload.get("env_risk_report"), dict) else {}
+        categories = env_risk_report.get("categories", []) if isinstance(env_risk_report.get("categories"), list) else []
+        if categories:
+            rollback_lines.append(f"- Re-check runtime / dependency settings for: {', '.join(categories)}")
+        commands = payload.get("test_strategy_commands", []) if isinstance(payload.get("test_strategy_commands"), list) else []
+        if commands:
+            rollback_lines.append(f"- Re-run validation: {' ; '.join(commands[:3])}")
+        rollback_note = _join_lines(rollback_lines)
+
+    return {
+        "pr_description": pr_description,
+        "release_note": release_note,
+        "rollback_note": rollback_note,
+    }
+
+
 def build_result_payload(task_path: Path, log_path: Path | None = None, result_path: Path | None = None) -> dict:
     task = read_json(task_path, {})
     if not task:
@@ -528,7 +598,7 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
     prompt_file = str(task.get("prompt_file", "")).strip()
     repo_profile_path = REPO_CONFIG_DIR / f"{repo}.json"
     review_findings = extract_review_findings(task, sections, existing.get("review_findings"))
-    active_prompt_version = file_version(PROMPTS_DIR / prompt_file, {"file": prompt_file})
+    active_prompt_version = file_version(PROMPTS_DIR / prompt_file, {"file": prompt_file}) if prompt_file else {"file": "", "exists": False}
     repo_profile_version = file_version(repo_profile_path, {"repo": repo})
     task_schema_version = file_version(TASK_SCHEMA_PATH)
     result_schema_version = file_version(RESULT_SCHEMA_PATH)
@@ -593,6 +663,7 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
         "log_path": str(log_path),
         "task_path": str(task_path),
     }
+    payload.update(build_delivery_artifacts(payload, sections))
     payload["evidence"] = build_evidence(payload, sections, task)
 
     if existing:

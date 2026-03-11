@@ -294,6 +294,8 @@ def build_console_summary(tasks, watchdog):
     return {
         "ready_to_pr": len(tasks.get("ready-to-pr", [])),
         "ready_to_push": len(tasks.get("ready-to-push", [])),
+        "ready_to_release": len(tasks.get("ready-to-release", [])),
+        "delivered": len(tasks.get("delivered", [])),
         "needs_human": len(tasks.get("needs-human", [])),
         "worker_alerts": watchdog["counts"].get("worker_alerts", 0),
         "failure_categories": sorted(failure_categories.items(), key=lambda item: (-item[1], item[0])),
@@ -308,6 +310,36 @@ def refresh_result_for_queue_file(task_file):
         write_task_result(task_file, log_path=LOGS / f"{task_file.stem}.log")
     except Exception:
         return
+
+
+def transition_delivery_task(name, src_queue, dst_queue, resolution):
+    allowed_sources = {"ready-to-pr", "ready-to-push", "ready-to-release"}
+    allowed_targets = {"ready-to-release", "delivered"}
+    if src_queue not in allowed_sources or dst_queue not in allowed_targets:
+        return "invalid queue", 400
+
+    src = QUEUE / src_queue / name
+    if not src.exists():
+        return "not found", 404
+
+    task = json.loads(src.read_text(encoding="utf-8"))
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    task["status"] = dst_queue
+    task["lifecycle_state"] = dst_queue
+    task["delivery_resolution"] = resolution
+    task["delivery_source_queue"] = src_queue
+    task["human_resolution"] = resolution
+    task["human_updated_at"] = now
+    if dst_queue == "ready-to-release":
+        task["release_ready_at"] = now
+    if dst_queue == "delivered":
+        task["delivered_at"] = now
+
+    out = QUEUE / dst_queue / name
+    out.write_text(json.dumps(task, ensure_ascii=False, indent=2), encoding="utf-8")
+    refresh_result_for_queue_file(out)
+    src.unlink()
+    return redirect("/")
 
 
 def load_tasks(queue_name):
@@ -584,7 +616,7 @@ def compute_backlog_items():
             effective_status = "blocked"
         elif any(task["queue"] == "failed" for task in related_tasks):
             effective_status = "failed"
-        elif any(task["queue"] in {"needs-human", "ready-to-pr", "ready-to-push"} for task in related_tasks):
+        elif any(task["queue"] in {"needs-human", "ready-to-pr", "ready-to-push", "ready-to-release", "delivered"} for task in related_tasks):
             effective_status = "ready_for_human"
         elif any(task["queue"] in {"pending", "running"} for task in related_tasks):
             effective_status = "in_progress"
@@ -714,7 +746,7 @@ def validate_repo_and_branch(repo, base_branch):
 
 def dashboard_context():
     heartbeat_watchdog_worker("web", status="serving", session_name="xtt-web", loop_pid=os.getpid())
-    queue_order = ["pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "done", "failed"]
+    queue_order = ["pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "ready-to-release", "delivered", "done", "failed"]
     tasks = {name: load_tasks(name) for name in queue_order}
     queue_counts = {name: len(tasks[name]) for name in queue_order}
     logs = load_logs()
@@ -913,6 +945,16 @@ def human_reject(name):
     refresh_result_for_queue_file(out)
     src.unlink()
     return redirect("/")
+
+
+@app.post("/deliver/release/<queue_name>/<name>")
+def deliver_release(queue_name, name):
+    return transition_delivery_task(name, queue_name, "ready-to-release", "release-prepared")
+
+
+@app.post("/deliver/complete/<queue_name>/<name>")
+def deliver_complete(queue_name, name):
+    return transition_delivery_task(name, queue_name, "delivered", "delivered")
 
 
 @app.get("/log/<name>")

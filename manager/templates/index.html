@@ -95,25 +95,37 @@
                 <div class="small text-secondary">control view</div>
               </div>
               <div class="row g-3 mb-3">
-                <div class="col-sm-6 col-xl-3">
+                <div class="col-sm-6 col-xl-2">
                   <div class="metric-card h-100">
                     <div class="metric-label">Ready to PR</div>
                     <div class="metric-value metric-value-sm">{{ console_summary['ready_to_pr'] }}</div>
                   </div>
                 </div>
-                <div class="col-sm-6 col-xl-3">
+                <div class="col-sm-6 col-xl-2">
                   <div class="metric-card h-100">
                     <div class="metric-label">Ready to Push</div>
                     <div class="metric-value metric-value-sm">{{ console_summary['ready_to_push'] }}</div>
                   </div>
                 </div>
-                <div class="col-sm-6 col-xl-3">
+                <div class="col-sm-6 col-xl-2">
+                  <div class="metric-card h-100">
+                    <div class="metric-label">Ready to Release</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['ready_to_release'] }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-xl-2">
+                  <div class="metric-card h-100">
+                    <div class="metric-label">Delivered</div>
+                    <div class="metric-value metric-value-sm">{{ console_summary['delivered'] }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-xl-2">
                   <div class="metric-card h-100 {% if console_summary['needs_human'] %}metric-alert{% endif %}">
                     <div class="metric-label">Needs Human</div>
                     <div class="metric-value metric-value-sm">{{ console_summary['needs_human'] }}</div>
                   </div>
                 </div>
-                <div class="col-sm-6 col-xl-3">
+                <div class="col-sm-6 col-xl-2">
                   <div class="metric-card h-100 {% if console_summary['worker_alerts'] %}metric-alert{% endif %}">
                     <div class="metric-label">Worker Alerts</div>
                     <div class="metric-value metric-value-sm">{{ console_summary['worker_alerts'] }}</div>
@@ -407,6 +419,17 @@
                             </form>
                             <form method="post" action="/human/reject/{{ task['filename'] }}">
                               <button class="btn btn-sm btn-outline-danger" type="submit">转失败</button>
+                            </form>
+                            {% elif queue_name in ['ready-to-pr', 'ready-to-push'] %}
+                            <form method="post" action="/deliver/release/{{ queue_name }}/{{ task['filename'] }}">
+                              <button class="btn btn-sm btn-outline-primary" type="submit">进入发布</button>
+                            </form>
+                            <form method="post" action="/deliver/complete/{{ queue_name }}/{{ task['filename'] }}">
+                              <button class="btn btn-sm btn-success" type="submit">标记交付</button>
+                            </form>
+                            {% elif queue_name == 'ready-to-release' %}
+                            <form method="post" action="/deliver/complete/{{ queue_name }}/{{ task['filename'] }}">
+                              <button class="btn btn-sm btn-success" type="submit">标记交付</button>
                             </form>
                             {% endif %}
                           </div>

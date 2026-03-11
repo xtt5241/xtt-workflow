@@ -29,10 +29,14 @@
 - verify 成功后会进入单独 gate：
   - `manager/queue/ready-to-push/`
   - 或 `manager/queue/ready-to-pr/`
+- 人工完成 push / PR 之后，可以继续进入：
+  - `manager/queue/ready-to-release/`
+  - 最终 `manager/queue/delivered/`
 - 当前默认策略是：
   - `allow_push=true` → 进入 `ready-to-push`
   - 否则 → 进入 `ready-to-pr`
 - 这些 gate 目录只表达“已具备人工决策条件”，不代表已经执行远程操作
+- `ready-to-release` 与 `delivered` 由人工按钮推进，用于表达真正的交付闭环
 
 ## 5. 禁止事项
 
