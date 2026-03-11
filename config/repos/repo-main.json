@@ -17,5 +17,6 @@
     "dist",
     "build"
   ],
-  "needs_ui_evidence": false
+  "needs_ui_evidence": false,
+  "version": 1
 }

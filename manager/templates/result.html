@@ -62,7 +62,95 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
 
+    {% set manifest = result.get('version_manifest', {}) %}
+    {% set active_prompt = manifest.get('active_prompt', result.get('prompt_version', {})) %}
+    {% set repo_profile = manifest.get('repo_profile', result.get('repo_profile_version', {})) %}
+    {% set task_schema = manifest.get('task_schema', result.get('task_schema_version', {})) %}
+    {% set result_schema = manifest.get('result_schema', result.get('result_schema_version', {})) %}
+    {% set prompt_bundle = manifest.get('prompt_bundle', result.get('prompt_bundle_versions', {})) %}
+    {% set agents = manifest.get('agents', result.get('agents_versions', [])) %}
+
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <h2 class="h5 mb-0">Version Provenance</h2>
+          <span class="badge text-bg-dark border">payload v{{ result.get('version') or '-' }}</span>
+        </div>
+        <div class="row g-4">
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Active Prompt</h3>
+                <div class="result-kv-list">
+                  <div><span class="text-secondary">file</span> · {{ active_prompt.get('file') or '-' }}</div>
+                  <div><span class="text-secondary">version</span> · {{ active_prompt.get('version') or '-' }}</div>
+                  <div><span class="text-secondary">mtime</span> · {{ active_prompt.get('mtime') or '-' }}</div>
+                  <div><span class="text-secondary">sha256</span> · <code>{{ active_prompt.get('sha256', '')[:16] or '-' }}</code></div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="col-12 col-xl-6">
+            <section class="card border-0 bg-body-tertiary h-100">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Schemas & Profile</h3>
+                <div class="result-kv-list">
+                  <div><span class="text-secondary">repo_profile</span> · v{{ repo_profile.get('version') or '-' }} · <code>{{ repo_profile.get('sha256', '')[:16] or '-' }}</code></div>
+                  <div><span class="text-secondary">task_schema</span> · v{{ task_schema.get('version') or '-' }} · <code>{{ task_schema.get('sha256', '')[:16] or '-' }}</code></div>
+                  <div><span class="text-secondary">result_schema</span> · v{{ result_schema.get('version') or '-' }} · <code>{{ result_schema.get('sha256', '')[:16] or '-' }}</code></div>
+                  <div><span class="text-secondary">evidence_schema</span> · {{ result.get('evidence_schema_version') or '-' }}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="col-12">
+            <section class="card border-0 bg-body-tertiary">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">Prompt Bundle</h3>
+                {% if prompt_bundle %}
+                <div class="d-flex flex-wrap gap-2">
+                  {% for key, item in prompt_bundle.items() %}
+                  <span class="badge text-bg-dark border">{{ key }} · v{{ item.get('version') or '-' }} · {{ item.get('sha256', '')[:10] or '-' }}</span>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-secondary small">暂无 prompt bundle 版本信息。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+          <div class="col-12">
+            <section class="card border-0 bg-body-tertiary">
+              <div class="card-body p-4">
+                <h3 class="h6 mb-3">AGENTS</h3>
+                {% if agents %}
+                <div class="d-flex flex-column gap-3">
+                  {% for item in agents %}
+                  <div class="result-summary">
+                    <div class="d-flex flex-wrap gap-2 mb-2 small">
+                      {% if item.get('scope') %}<span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ item.get('scope') }}</span>{% endif %}
+                      <span class="badge text-bg-dark border">v{{ item.get('version') or '-' }}</span>
+                    </div>
+                    <div class="small text-break mb-2"><code>{{ item.get('path') }}</code></div>
+                    <div class="small text-secondary">mtime: {{ item.get('mtime') or '-' }} · sha256: <code>{{ item.get('sha256', '')[:16] or '-' }}</code></div>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-secondary small">当前结果没有关联到 AGENTS.md。</div>
+                {% endif %}
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-lg overflow-hidden mb-4">
+      <div class="card-body p-4 p-lg-5">
         <div class="row g-4">
           <div class="col-12">
             <section class="card border-0 bg-body-tertiary">
@@ -142,7 +230,7 @@
                   {% for item in result['test_results'] %}
                   <div class="result-summary">
                     <div class="d-flex flex-wrap gap-2 mb-2 small">
-                      <span class="badge text-bg-dark border">{{ item.get('status') }}</span>
+                      <span class="badge {% if item.get('status') == 'passed' %}text-bg-success{% elif item.get('status') == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ item.get('status') }}</span>
                       {% if item.get('duration') %}<span class="badge text-bg-dark border">{{ item.get('duration') }}</span>{% endif %}
                       <span class="badge text-bg-dark border">exit {{ item.get('exit_code') }}</span>
                     </div>

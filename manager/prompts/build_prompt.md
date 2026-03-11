@@ -1,3 +1,6 @@
+Prompt Name: build
+Prompt Version: 1
+
 任务标题：{{title}}
 任务类型：{{type}}
 任务类别：{{task_kind}}

@@ -15,6 +15,8 @@ LOGS_DIR = MANAGER_DIR / "logs"
 PROMPTS_DIR = MANAGER_DIR / "prompts"
 REPO_CONFIG_DIR = WORKFLOW_ROOT / "config" / "repos"
 TASK_SCHEMA_PATH = WORKFLOW_ROOT / "config" / "task_schema.json"
+RESULT_SCHEMA_PATH = WORKFLOW_ROOT / "config" / "result_schema.json"
+PROMPT_BUNDLE_FILES = ("build_prompt.md", "review_prompt.md", "verify_prompt.md", "plan_prompt.md", "backlog_build_prompt.md")
 QUEUE_NAMES = {"pending", "running", "needs-human", "ready-to-pr", "ready-to-push", "done", "failed"}
 TEST_COMMAND_RE = re.compile(
     r"(pytest|unittest|vitest|jest|playwright|cypress|go test|cargo test|npm(?:\s+run)?\s+(?:test|build)|"
@@ -24,6 +26,8 @@ TEST_COMMAND_RE = re.compile(
 )
 LINT_COMMAND_RE = re.compile(r"(ruff|flake8|eslint|stylelint|mypy|tsc|lint)", re.IGNORECASE)
 BUILD_COMMAND_RE = re.compile(r"(npm(?:\s+run)?\s+build|pnpm(?:\s+run)?\s+build|yarn\s+build|make\s+build|cargo\s+build|go\s+build|build)", re.IGNORECASE)
+TEXT_VERSION_RE = re.compile(r"(?im)^\s*(?:prompt|profile|schema|result|policy|bundle)?\s*version\s*[:=]\s*([A-Za-z0-9._-]+)\s*$")
+TEXT_VERSION_RE_CN = re.compile(r"(?im)^\s*(?:版本|协议版本)\s*[:：]\s*([A-Za-z0-9._-]+)\s*$")
 
 
 def read_json(path: Path, default):
@@ -50,6 +54,14 @@ def dedupe_list(items) -> list:
     return seen
 
 
+def declared_text_version(text: str) -> str:
+    for pattern in (TEXT_VERSION_RE, TEXT_VERSION_RE_CN):
+        match = pattern.search("\n".join(text.splitlines()[:12]))
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
 def file_version(path: Path, extra: dict | None = None) -> dict:
     payload = extra.copy() if extra else {}
     payload["path"] = str(path)
@@ -67,12 +79,48 @@ def file_version(path: Path, extra: dict | None = None) -> dict:
         }
     )
     try:
-        parsed = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        decoded = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        decoded = ""
+    try:
+        parsed = json.loads(decoded) if decoded else None
+    except json.JSONDecodeError:
         parsed = None
     if isinstance(parsed, dict) and "version" in parsed:
         payload["version"] = parsed["version"]
+    elif decoded:
+        declared = declared_text_version(decoded)
+        if declared:
+            payload["version"] = declared
     return payload
+
+
+def workspace_repo_path(repo: str) -> Path | None:
+    repo = str(repo or "").strip()
+    if not repo:
+        return None
+    path = WORKFLOW_ROOT / "workspace" / repo
+    return path if path.exists() else None
+
+
+def agents_versions_for_repo(repo: str) -> list[dict]:
+    items = []
+    workflow_agents = WORKFLOW_ROOT / "AGENTS.md"
+    if workflow_agents.exists():
+        items.append(file_version(workflow_agents, {"scope": "workflow_root"}))
+    repo_path = workspace_repo_path(repo)
+    if repo_path:
+        root_agents = repo_path / "AGENTS.md"
+        if root_agents.exists():
+            items.append(file_version(root_agents, {"scope": repo}))
+    return items
+
+
+def prompt_bundle_versions() -> dict:
+    return {
+        prompt_file.removesuffix(".md"): file_version(PROMPTS_DIR / prompt_file, {"file": prompt_file})
+        for prompt_file in PROMPT_BUNDLE_FILES
+    }
 
 
 def normalize_heading(text: str) -> str:
@@ -458,9 +506,15 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
     prompt_file = str(task.get("prompt_file", "")).strip()
     repo_profile_path = REPO_CONFIG_DIR / f"{repo}.json"
     review_findings = extract_review_findings(task, sections, existing.get("review_findings"))
+    active_prompt_version = file_version(PROMPTS_DIR / prompt_file, {"file": prompt_file})
+    repo_profile_version = file_version(repo_profile_path, {"repo": repo})
+    task_schema_version = file_version(TASK_SCHEMA_PATH)
+    result_schema_version = file_version(RESULT_SCHEMA_PATH)
+    prompt_versions = prompt_bundle_versions()
+    agents_versions = agents_versions_for_repo(repo)
 
     payload = {
-        "version": 1,
+        "version": result_schema_version.get("version", 2),
         "evidence_schema_version": 1,
         "task_id": task_id,
         "title": str(task.get("title", "")).strip(),
@@ -492,9 +546,20 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
         "verify_decision": extract_verify_decision(task, sections, queue_name, existing.get("verify_decision")),
         "merge_decision": extract_verify_decision(task, sections, queue_name, existing.get("merge_decision")),
         "residual_risks": extract_residual_risks(task, sections, existing.get("residual_risks")),
-        "prompt_version": file_version(PROMPTS_DIR / prompt_file, {"file": prompt_file}),
-        "repo_profile_version": file_version(repo_profile_path, {"repo": repo}),
-        "task_schema_version": file_version(TASK_SCHEMA_PATH),
+        "prompt_version": active_prompt_version,
+        "prompt_bundle_versions": prompt_versions,
+        "repo_profile_version": repo_profile_version,
+        "task_schema_version": task_schema_version,
+        "result_schema_version": result_schema_version,
+        "agents_versions": agents_versions,
+        "version_manifest": {
+            "active_prompt": active_prompt_version,
+            "prompt_bundle": prompt_versions,
+            "repo_profile": repo_profile_version,
+            "task_schema": task_schema_version,
+            "result_schema": result_schema_version,
+            "agents": agents_versions,
+        },
         "budget_report": maybe_keep(task.get("budget_report", {}), existing.get("budget_report")),
         "dod_report": maybe_keep(task.get("dod_report", {}), existing.get("dod_report")),
         "human_gate": str(task.get("human_gate", "")).strip(),

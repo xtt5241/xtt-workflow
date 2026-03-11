@@ -9,6 +9,7 @@ WORKFLOW_ROOT = MANAGER_DIR.parent
 REPO_PROFILE_DIR = WORKFLOW_ROOT / "config" / "repos"
 
 DEFAULT_REPO_PROFILE = {
+    "version": 1,
     "stack": "generic",
     "default_branch": "main",
     "install_cmd": "",
@@ -72,6 +73,7 @@ def normalize_repo_profile(repo: str, profile: dict | None = None) -> dict:
             merged[key] = _clone(value)
 
     normalized = {
+        "version": merged.get("version", 1),
         "stack": _normalize_string(merged.get("stack"), "generic") or "generic",
         "default_branch": _normalize_string(merged.get("default_branch"), "main") or "main",
         "install_cmd": _normalize_string(merged.get("install_cmd")),
@@ -122,6 +124,7 @@ def order_remote_branches(profile: dict, remote_branches: list[str]) -> list[str
 
 def repo_profile_summary(profile: dict) -> str:
     lines = [
+        f"- version: {profile.get('version') or 1}",
         f"- stack: {profile.get('stack') or 'generic'}",
         f"- default_branch: {profile.get('default_branch') or 'main'}",
         f"- install_cmd: {profile.get('install_cmd') or '(none)'}",

@@ -1,3 +1,6 @@
+Prompt Name: backlog_build
+Prompt Version: 1
+
 任务：{{backlog_item_id}} {{backlog_item_title}}
 任务标题：{{title}}
 任务类型：{{type}}

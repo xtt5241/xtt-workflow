@@ -1,3 +1,6 @@
+Prompt Name: verify
+Prompt Version: 1
+
 请验证当前任务对象定义的改动是否真的可用。
 
 任务标题：{{title}}

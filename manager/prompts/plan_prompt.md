@@ -1,3 +1,6 @@
+Prompt Name: plan
+Prompt Version: 1
+
 任务：{{title}}
 
 请先阅读相关代码，只输出最小实现计划，不要直接修改代码。

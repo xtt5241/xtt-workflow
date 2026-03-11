@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "name": "workflow_result_payload",
+  "required": [
+    "version",
+    "task_id",
+    "title",
+    "stage",
+    "role",
+    "repo",
+    "base_branch",
+    "status",
+    "lifecycle_state",
+    "queue",
+    "written_at",
+    "summary",
+    "changed_files",
+    "test_results",
+    "verify_decision",
+    "prompt_version",
+    "repo_profile_version",
+    "task_schema_version",
+    "result_schema_version",
+    "version_manifest"
+  ],
+  "optional": [
+    "prompt_bundle_versions",
+    "agents_versions",
+    "evidence",
+    "review_findings",
+    "missing_tests",
+    "rule_conflicts",
+    "pass_paths",
+    "fail_paths",
+    "residual_risks",
+    "budget_report",
+    "dod_report"
+  ],
+  "version_fields": [
+    "prompt_version",
+    "prompt_bundle_versions",
+    "repo_profile_version",
+    "task_schema_version",
+    "result_schema_version",
+    "agents_versions",
+    "version_manifest"
+  ]
+}
