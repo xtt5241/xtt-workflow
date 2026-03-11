@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "name": "workflow_result_payload",
   "required": [
     "version",
@@ -34,7 +34,10 @@
     "fail_paths",
     "residual_risks",
     "budget_report",
-    "dod_report"
+    "dod_report",
+    "risk_signals",
+    "env_risk_summary",
+    "env_risk_report"
   ],
   "version_fields": [
     "prompt_version",

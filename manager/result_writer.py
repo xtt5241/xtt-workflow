@@ -455,6 +455,28 @@ def build_evidence(payload: dict, sections: list[dict], task: dict) -> list[dict
     if rollback_notes:
         evidence.append({"type": "rollback_note", "label": "rollback", "summary": f"{len(rollback_notes)} rollback notes", "items": rollback_notes})
 
+    env_risk_report = payload.get("env_risk_report", {}) if isinstance(payload.get("env_risk_report"), dict) else {}
+    if env_risk_report:
+        risk_items = []
+        for signal in env_risk_report.get("signals", []):
+            if not isinstance(signal, dict):
+                continue
+            category = str(signal.get("category", "risk")).strip() or "risk"
+            items = [str(item).strip() for item in signal.get("items", []) if str(item).strip()]
+            if items:
+                risk_items.append(f"{category}: {', '.join(items)}")
+        for command in env_risk_report.get("validation_commands", []):
+            if str(command).strip():
+                risk_items.append(f"validate: {str(command).strip()}")
+        evidence.append(
+            {
+                "type": "change_risk",
+                "label": "risk",
+                "summary": env_risk_report.get("summary") or "elevated change risk detected",
+                "items": risk_items or [str(item).strip() for item in payload.get("risk_signals", []) if str(item).strip()],
+            }
+        )
+
     changed_files = payload.get("changed_files", []) if isinstance(payload.get("changed_files"), list) else []
     if task.get("allow_migration") or any("migration" in item.lower() for item in changed_files):
         evidence.append(
@@ -531,6 +553,9 @@ def build_result_payload(task_path: Path, log_path: Path | None = None, result_p
         "queue": queue_name,
         "written_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
         "summary": summary,
+        "risk_signals": [str(item).strip() for item in task.get("risk_signals", []) if str(item).strip()],
+        "env_risk_summary": str(task.get("env_risk_summary", "none detected")).strip() or "none detected",
+        "env_risk_report": maybe_keep(task.get("env_risk_report", {}), existing.get("env_risk_report")),
         "test_strategy_level": str(task.get("test_strategy_level", "")).strip(),
         "test_strategy_reason": str(task.get("test_strategy_reason", "")).strip(),
         "test_strategy_commands": [str(item).strip() for item in task.get("test_strategy_commands", []) if str(item).strip()],

@@ -117,8 +117,16 @@ for f in "$DONE"/*.json; do
   change_budget="$(jq -c '.change_budget // {"max_files":0,"max_lines":0}' "$f")"
   allow_push="$(jq -r '.allow_push // false' "$f")"
   allow_pr="$(jq -r '.allow_pr // false' "$f")"
+  allow_dependency_changes="$(jq -r '.allow_dependency_changes // false' "$f")"
+  allow_migration="$(jq -r '.allow_migration // false' "$f")"
+  allow_ci_changes="$(jq -r '.allow_ci_changes // false' "$f")"
+  allow_deploy_changes="$(jq -r '.allow_deploy_changes // false' "$f")"
+  allow_cross_layer_refactor="$(jq -r '.allow_cross_layer_refactor // false' "$f")"
   allowed_paths="$(jq -c '.allowed_paths // []' "$f")"
   forbidden_paths="$(jq -c '.forbidden_paths // []' "$f")"
+  env_risk_summary="$(jq -r '.env_risk_summary // "none detected"' "$f")"
+  env_risk_report="$(jq -c '.env_risk_report // {}' "$f")"
+  risk_signals="$(jq -c '.risk_signals // []' "$f")"
   if [ "$type" = "build" ]; then
     review_id="${id}-review"
     cat > "$PENDING/${review_id}.json" <<JSON
@@ -144,8 +152,16 @@ for f in "$DONE"/*.json; do
   "allow_auto_commit": false,
   "allow_push": $allow_push,
   "allow_pr": $allow_pr,
+  "allow_dependency_changes": $allow_dependency_changes,
+  "allow_migration": $allow_migration,
+  "allow_ci_changes": $allow_ci_changes,
+  "allow_deploy_changes": $allow_deploy_changes,
+  "allow_cross_layer_refactor": $allow_cross_layer_refactor,
   "allowed_paths": $allowed_paths,
   "forbidden_paths": $forbidden_paths,
+  "env_risk_summary": $(jq -Rn --arg value "$env_risk_summary" '$value'),
+  "env_risk_report": $env_risk_report,
+  "risk_signals": $risk_signals,
   "backlog_item_id": "$backlog_item_id",
   "backlog_item_title": "$backlog_item_title",
   "worktree": "$(worktree_name "$repo" review)",
@@ -185,8 +201,16 @@ JSON
   "allow_auto_commit": false,
   "allow_push": $allow_push,
   "allow_pr": $allow_pr,
+  "allow_dependency_changes": $allow_dependency_changes,
+  "allow_migration": $allow_migration,
+  "allow_ci_changes": $allow_ci_changes,
+  "allow_deploy_changes": $allow_deploy_changes,
+  "allow_cross_layer_refactor": $allow_cross_layer_refactor,
   "allowed_paths": $allowed_paths,
   "forbidden_paths": $forbidden_paths,
+  "env_risk_summary": $(jq -Rn --arg value "$env_risk_summary" '$value'),
+  "env_risk_report": $env_risk_report,
+  "risk_signals": $risk_signals,
   "backlog_item_id": "$backlog_item_id",
   "backlog_item_title": "$backlog_item_title",
   "worktree": "$(worktree_name "$repo" verify)",

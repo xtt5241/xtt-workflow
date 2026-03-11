@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "field_order": [
     "id",
     "type",
@@ -16,6 +16,9 @@
     "risk_level",
     "evidence_required",
     "change_budget",
+    "env_risk_summary",
+    "env_risk_report",
+    "risk_signals",
     "allow_auto_commit",
     "allow_push",
     "allow_pr",
@@ -61,6 +64,9 @@
       "risk_level",
       "evidence_required",
       "change_budget",
+      "env_risk_summary",
+      "env_risk_report",
+      "risk_signals",
       "allow_auto_commit",
       "allow_push",
       "allow_pr",
@@ -120,7 +126,10 @@
     "allow_migration": "boolean",
     "allow_ci_changes": "boolean",
     "allow_deploy_changes": "boolean",
-    "allow_cross_layer_refactor": "boolean"
+    "allow_cross_layer_refactor": "boolean",
+    "env_risk_summary": "string",
+    "env_risk_report": "object",
+    "risk_signals": "string_array"
   },
   "enums": {
     "type": [
@@ -202,7 +211,10 @@
       "allow_migration": false,
       "allow_ci_changes": false,
       "allow_deploy_changes": false,
-      "allow_cross_layer_refactor": false
+      "allow_cross_layer_refactor": false,
+      "env_risk_summary": "none detected",
+      "env_risk_report": {},
+      "risk_signals": []
     },
     "by_type": {
       "build": {

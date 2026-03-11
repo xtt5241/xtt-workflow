@@ -18,5 +18,32 @@
     "build"
   ],
   "needs_ui_evidence": false,
-  "version": 1
+  "version": 1,
+  "dependency_files": [],
+  "lockfile_files": [],
+  "environment_paths": [
+    "env",
+    "config/env",
+    "config/runtime"
+  ],
+  "environment_files": [
+    ".env.example",
+    ".env.sample",
+    "env.example",
+    "env.sample"
+  ],
+  "runtime_files": [
+    ".python-version",
+    ".nvmrc",
+    ".node-version",
+    ".tool-versions",
+    "runtime.txt"
+  ],
+  "package_manager_files": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+    ".yarnrc",
+    ".yarnrc.yml"
+  ]
 }

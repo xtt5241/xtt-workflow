@@ -26,6 +26,15 @@ DoD：
 证据要求：
 {{evidence_required}}
 
+环境 / 依赖风险摘要：
+{{env_risk_summary}}
+
+风险信号：
+{{risk_signals}}
+
+风险报告：
+{{env_risk_report}}
+
 建议测试层级：{{test_strategy_level}}
 测试层级原因：{{test_strategy_reason}}
 建议验证命令：
@@ -40,6 +49,11 @@ DoD：
 必要时先查看：
 - `git diff --stat origin/{{base_branch}}...HEAD`
 - 仓库 profile 指定的安装 / 测试 / build / smoke test 入口
+
+若存在 `environment` / `runtime` / `package_manager` / `lockfile` / `migration` 风险信号，必须：
+- 明确说明额外验证是否充分
+- 明确列出剩余风险与回滚关注点
+- 若仍需人工复核，直接指出原因
 
 输出：
 - 测试层级

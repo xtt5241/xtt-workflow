@@ -256,9 +256,17 @@ def task_risk_tags(task, result=None):
         tags.append("ci")
     if task.get("allow_cross_layer_refactor"):
         tags.append("xlayer")
+    for signal in task.get("risk_signals", []) if isinstance(task.get("risk_signals"), list) else []:
+        signal_text = str(signal).strip().replace("_", "-")
+        if signal_text:
+            tags.append(f"risk:{signal_text}")
     if task.get("human_gate"):
         tags.append(f"gate:{task['human_gate']}")
     if isinstance(result, dict):
+        for signal in result.get("risk_signals", []) if isinstance(result.get("risk_signals"), list) else []:
+            signal_text = str(signal).strip().replace("_", "-")
+            if signal_text:
+                tags.append(f"risk:{signal_text}")
         if result.get("review_findings"):
             tags.append("findings")
         if result.get("evidence"):

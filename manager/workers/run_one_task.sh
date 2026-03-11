@@ -91,6 +91,7 @@ WORKTREE_PATH="$ROOT/workspace/$WORKTREE"
 PROMPT_PATH="$ROOT/manager/prompts/$PROMPT_FILE"
 PROMPT_TMP="$ROOT/manager/state/${TASK_ID}.prompt.md"
 BUDGET_REPORT_PATH="$ROOT/manager/state/${TASK_ID}.budget.json"
+CHANGE_RISK_REPORT_PATH="$ROOT/manager/state/${TASK_ID}.risk.json"
 CODEX_HOME_PATH="$ROOT/codex-homes/$ROLE"
 RESULT_PATH="$RESULTS_DIR/${TASK_ID}.json"
 WATCHDOG_SCRIPT="$ROOT/manager/watchdog.py"
@@ -177,21 +178,18 @@ move_to_needs_human() {
   local report_path="$2"
 
   if [ -f "$report_path" ]; then
-    jq --slurpfile report "$report_path" \
-       --arg gate "$gate" \
-       --arg lifecycle "$DONE_LIFECYCLE" \
-       --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
-       '.status = "needs-human"
+    jq --slurpfile report "$report_path" --arg gate "$gate" --arg lifecycle "$DONE_LIFECYCLE" --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')"        '.status = "needs-human"
         | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = (($report[0].summary // "needs human review"))
-        | .budget_report = ($report[0] // {})
+        | .budget_report = (if $gate == "change-budget" then ($report[0] // {}) else (.budget_report // {}) end)
+        | .env_risk_report = (if $gate == "change-risk" then ($report[0] // {}) else (.env_risk_report // {}) end)
+        | .env_risk_summary = (if $gate == "change-risk" then ($report[0].summary // (.env_risk_summary // "none detected")) else (.env_risk_summary // "none detected") end)
+        | .risk_signals = (if $gate == "change-risk" then ($report[0].categories // (.risk_signals // [])) else (.risk_signals // []) end)
+        | .risk_level = (if $gate == "change-risk" and (($report[0].risk_level // "") != "") then $report[0].risk_level else (.risk_level // "medium") end)
         | .human_updated_at = $updated_at' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
   else
-    jq --arg gate "$gate" \
-       --arg lifecycle "$DONE_LIFECYCLE" \
-       --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')" \
-       '.status = "needs-human"
+    jq --arg gate "$gate" --arg lifecycle "$DONE_LIFECYCLE" --arg updated_at "$(date '+%Y-%m-%d %H:%M:%S')"        '.status = "needs-human"
         | .lifecycle_state = $lifecycle
         | .human_gate = $gate
         | .human_reason = "needs human review"
@@ -203,6 +201,20 @@ move_to_needs_human() {
   mv "$RUNNING_FILE" "$QUEUE_NEEDS_HUMAN/$BASENAME"
   printf 'task moved to needs-human queue: %s\n' "$QUEUE_NEEDS_HUMAN/$BASENAME" >> "$LOG_PATH"
   exit 0
+}
+
+apply_change_risk_report() {
+  local report_path="$1"
+  [ -f "$report_path" ] || return 0
+
+  jq --slurpfile report "$report_path"      '.risk_level = (if (($report[0].risk_level // "") != "") then $report[0].risk_level else (.risk_level // "medium") end)
+      | .risk_signals = ($report[0].categories // (.risk_signals // []))
+      | .env_risk_summary = ($report[0].summary // (.env_risk_summary // "none detected"))
+      | .env_risk_report = ($report[0] // (.env_risk_report // {}))
+      | .evidence_required = (((.evidence_required // []) + ($report[0].required_evidence // [])) | unique)' "$RUNNING_FILE" > "$RUNNING_FILE.tmp"
+  mv "$RUNNING_FILE.tmp" "$RUNNING_FILE"
+  python3 "$ROOT/manager/task_schema.py" normalize "$RUNNING_FILE" --in-place >/dev/null
+  python3 "$ROOT/manager/test_strategy.py" apply "$RUNNING_FILE" --in-place >/dev/null
 }
 
 ensure_git_identity() {
@@ -236,13 +248,26 @@ commit_builder_changes() {
   python3 "$ROOT/manager/builder_hygiene.py" drop-staged "$PWD" >> "$LOG_PATH" 2>&1 || true
 
   if ! python3 "$ROOT/manager/task_boundary.py" check-staged "$RUNNING_FILE" "$PWD" >> "$LOG_PATH" 2>&1; then
-    printf "builder: boundary conflict detected, task will fail\n" >> "$LOG_PATH"
+    printf 'builder: boundary conflict detected, task will fail\n' >> "$LOG_PATH"
     return 1
   fi
 
   if [ -z "$(git diff --cached --name-only)" ]; then
     printf 'builder: no staged changes remain after hygiene cleanup\n' >> "$LOG_PATH"
     return 0
+  fi
+
+  CHANGE_RISK_EXIT=0
+  set +e
+  python3 "$ROOT/manager/change_risk.py" check-staged "$RUNNING_FILE" "$PWD" "$CHANGE_RISK_REPORT_PATH" >> "$LOG_PATH" 2>&1
+  CHANGE_RISK_EXIT=$?
+  set -e
+  if [ "$CHANGE_RISK_EXIT" -ne 0 ] && [ "$CHANGE_RISK_EXIT" -ne 3 ]; then
+    printf 'builder: change risk analysis failed\n' >> "$LOG_PATH"
+    return 1
+  fi
+  if [ -f "$CHANGE_RISK_REPORT_PATH" ]; then
+    apply_change_risk_report "$CHANGE_RISK_REPORT_PATH"
   fi
 
   set +e
@@ -258,6 +283,10 @@ commit_builder_changes() {
   fi
 
   git commit -m "builder: ${TASK_ID} ${TITLE}" >> "$LOG_PATH" 2>&1
+
+  if [ "$CHANGE_RISK_EXIT" -eq 3 ]; then
+    move_to_needs_human "change-risk" "$CHANGE_RISK_REPORT_PATH"
+  fi
 }
 
 if ! "$ROOT/scripts/create_worktree.sh" "$REPO_MAIN" "$WORKTREE_PATH" "$BRANCH" "$BASE_BRANCH" "$SOURCE_REF" >> "$LOG_PATH" 2>&1; then

@@ -40,8 +40,14 @@ def strategy_commands(profile: dict) -> dict[str, list[str]]:
     return commands
 
 
+def task_risk_signals(task: dict) -> list[str]:
+    return dedupe(str(item).strip() for item in task.get("risk_signals", []) if str(item).strip())
+
+
 def is_high_risk(task: dict, profile: dict) -> bool:
     if str(task.get("risk_level", "")).strip() == "high":
+        return True
+    if task_risk_signals(task):
         return True
     if any(
         bool(task.get(flag))
@@ -66,6 +72,10 @@ def choose_level(task: dict, profile: dict) -> tuple[str, str]:
     task_type = str(task.get("type", "build")).strip() or "build"
     task_kind = str(task.get("task_kind", "feature")).strip() or "feature"
     allowed_paths = [str(item).strip() for item in task.get("allowed_paths", []) if str(item).strip()]
+    risk_signals = task_risk_signals(task)
+
+    if risk_signals:
+        return "extended", f"change-risk signals detected: {', '.join(risk_signals)}"
 
     if is_high_risk(task, profile):
         return "extended", "high risk flags or repo profile risk path detected"

@@ -209,7 +209,7 @@ def normalize_task(task: dict, schema: dict | None = None) -> dict:
     if not _split_text_list(normalized.get("acceptance", [])):
         normalized["acceptance"] = _default_acceptance(normalized)
 
-    for field in ("acceptance", "evidence_required", "allowed_paths", "forbidden_paths", "depends_on"):
+    for field in ("acceptance", "evidence_required", "allowed_paths", "forbidden_paths", "depends_on", "risk_signals"):
         normalized[field] = _split_text_list(normalized.get(field, []))
 
     for field in ("allow_auto_commit", "allow_push", "allow_pr", "allow_dependency_changes", "allow_migration", "allow_ci_changes", "allow_deploy_changes", "allow_cross_layer_refactor"):
