@@ -428,6 +428,87 @@
       </div>
     </div>
 
+    <div class="row g-4 mb-4 align-items-start">
+      <div class="col-12">
+        <section class="card border-0 shadow-lg">
+          <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <h2 class="h4 mb-1">Idea Generator</h2>
+                <p class="text-secondary mb-0">基于真实历史结果生成结构化后续任务建议，并可直接派发为 build 任务。</p>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <span class="badge text-bg-info rounded-pill px-3 py-2">{{ idea_report.get('summary', {}).get('idea_count', 0) }} ideas</span>
+                <a class="btn btn-outline-info" href="/ideas">
+                  <i class="bi bi-stars me-2"></i>查看 Idea Backlog
+                </a>
+              </div>
+            </div>
+
+            {% if idea_report.get('ideas') %}
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100 {% if idea_report.get('summary', {}).get('top_priority_count', 0) %}metric-alert{% endif %}">
+                  <div class="metric-label">高优先级 Idea</div>
+                  <div class="metric-value metric-value-sm">{{ idea_report.get('summary', {}).get('top_priority_count', 0) }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">推荐 Repo</div>
+                  <div class="metric-value metric-value-sm">{{ idea_report.get('summary', {}).get('repo') or '-' }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">推荐分支</div>
+                  <div class="metric-value metric-value-sm">{{ idea_report.get('summary', {}).get('base_branch') or '-' }}</div>
+                </div>
+              </div>
+              <div class="col-sm-6 col-xl-3">
+                <div class="metric-card h-100">
+                  <div class="metric-label">Top Score</div>
+                  <div class="metric-value metric-value-sm">{{ idea_report.get('ideas', [{}])[0].get('score') if idea_report.get('ideas') else 0 }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-start">
+              {% for item in idea_report.get('ideas', [])[:3] %}
+              <div class="col-12 col-xl-4">
+                <div class="finding-card h-100">
+                  <div class="d-flex flex-wrap gap-2 mb-2 small">
+                    <span class="badge text-bg-dark border">#{{ item['rank'] }}</span>
+                    <span class="badge text-bg-{{ 'danger' if item['priority'] == 'high' else ('warning' if item['priority'] == 'medium' else 'secondary') }}">{{ item['priority'] }}</span>
+                    <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ item['category_label'] }}</span>
+                  </div>
+                  <div class="fw-semibold text-break mb-2">{{ item['title'] }}</div>
+                  <div class="small text-secondary text-break mb-3">{{ item['why_now'] }}</div>
+                  {% if item.get('allowed_paths') %}
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    {% for path in item.get('allowed_paths', [])[:3] %}
+                    <span class="badge text-bg-dark border"><code>{{ path }}</code></span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <a class="btn btn-sm btn-outline-info" href="/ideas">详情</a>
+                    <form method="post" action="/idea/queue/{{ item['id'] }}">
+                      <button class="btn btn-sm btn-success" type="submit">派发</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无结构化 idea，先积累更多历史任务结果。</div>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+
     <div class="row g-4 align-items-start">
       <div class="col-12 col-xxl-8">
         <section class="card border-0 shadow-lg h-100">

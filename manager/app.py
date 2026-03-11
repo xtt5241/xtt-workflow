@@ -13,6 +13,7 @@ if str(MANAGER_DIR) not in sys.path:
 
 from task_schema import ensure_valid_task
 from repo_profile import load_repo_profile, load_repo_profiles, order_remote_branches, repo_default_branch, repo_profile_summary
+from idea_generator import IDEA_REPORT_PATH as IDEA_BACKLOG_REPORT_PATH, load_idea_backlog_report
 from post_task_learn import REPORT_PATH as POST_TASK_LEARN_REPORT_PATH, load_post_task_learn_report
 from result_writer import result_path_for_task, write_task_result
 from test_strategy import apply_test_strategy
@@ -681,6 +682,14 @@ def queue_task(task):
     return task
 
 
+def load_idea_item(idea_id):
+    report = load_idea_backlog_report()
+    for item in report.get("ideas", []):
+        if isinstance(item, dict) and str(item.get("id", "")).strip() == idea_id:
+            return item, report
+    return None, report
+
+
 def create_standard_task(title, repo, base_branch, prompt_file="build_prompt.md", extra_fields=None):
     ts = int(time.time())
     task_id = f"task-{ts}"
@@ -766,6 +775,7 @@ def dashboard_context():
     watchdog = compute_watchdog_summary(apply_actions=False)
     console_summary = build_console_summary(tasks, watchdog)
     learn_report = load_post_task_learn_report()
+    idea_report = load_idea_backlog_report()
 
     return {
         "queue_order": queue_order,
@@ -788,6 +798,7 @@ def dashboard_context():
         "watchdog": watchdog,
         "console_summary": console_summary,
         "learn_report": learn_report,
+        "idea_report": idea_report,
     }
 
 
@@ -975,6 +986,68 @@ def log(name):
         size_kb=max(1, stat.st_size // 1024),
         content=content,
     )
+
+
+@app.get("/ideas")
+def ideas():
+    payload = load_idea_backlog_report()
+    report_path = IDEA_BACKLOG_REPORT_PATH
+    mtime = ""
+    size_kb = 0
+    if report_path.exists():
+        stat = report_path.stat()
+        mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
+        size_kb = max(1, stat.st_size // 1024)
+    return render_template(
+        "ideas.html",
+        report=payload,
+        mtime=mtime,
+        size_kb=size_kb,
+        raw=json.dumps(payload, ensure_ascii=False, indent=2),
+    )
+
+
+@app.post("/idea/queue/<idea_id>")
+def idea_queue(idea_id):
+    idea, _ = load_idea_item(idea_id)
+    if not idea:
+        return "idea not found", 404
+
+    repo = str(idea.get("repo", "repo-main")).strip() or "repo-main"
+    base_branch = str(idea.get("base_branch", "")).strip() or get_repo_default_branch(repo)
+    error = validate_repo_and_branch(repo, base_branch)
+    if error:
+        return error, 400
+
+    title = f"[Idea] {idea.get('title', idea_id)}"
+    task = create_standard_task(
+        title=title,
+        repo=repo,
+        base_branch=base_branch,
+        extra_fields={
+            "task_kind": str(idea.get("task_kind", "infra")).strip() or "infra",
+            "goal": str(idea.get("goal", title)).strip() or title,
+            "acceptance": idea.get("acceptance", []),
+            "risk_level": str(idea.get("risk_level", "medium")).strip() or "medium",
+            "allowed_paths": idea.get("allowed_paths", []),
+            "change_budget": idea.get("change_budget", {"max_files": 12, "max_lines": 260}),
+            "files_hint": idea.get("related_modules", []) or idea.get("allowed_paths", []),
+            "outputs_hint": idea.get("outputs_hint", []),
+            "idea_id": str(idea.get("id", idea_id)).strip(),
+            "idea_rank": int(idea.get("rank", 0) or 0),
+            "idea_score": int(idea.get("score", 0) or 0),
+            "idea_priority": str(idea.get("priority", "medium")).strip() or "medium",
+            "idea_category": str(idea.get("category", "general")).strip() or "general",
+            "idea_category_label": str(idea.get("category_label", "工程质量")).strip() or "工程质量",
+            "idea_fingerprint": str(idea.get("fingerprint", "")).strip(),
+            "idea_why_now": str(idea.get("why_now", "")).strip(),
+            "idea_evidence": idea.get("evidence", []),
+            "source_signals": idea.get("source_signals", []),
+            "branch": f"feat/{safe_name(repo)}-{safe_name(str(idea.get('id', idea_id)))}-{int(time.time())}",
+        },
+    )
+    queue_task(task)
+    return redirect("/ideas")
 
 
 @app.get("/learn")

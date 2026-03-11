@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Idea Generator · xtt Workflow Manager</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='dashboard.css') }}" rel="stylesheet">
+</head>
+<body>
+  <main class="container-fluid px-3 px-lg-4 py-4 dashboard-shell">
+    <section class="hero-card card border-0 shadow-lg mb-4 overflow-hidden">
+      <div class="card-body p-4 p-xl-5">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 text-info-emphasis mb-3 small fw-semibold text-uppercase">
+              <i class="bi bi-stars"></i>
+              <span>Idea Generator</span>
+            </div>
+            <h1 class="display-6 fw-bold mb-3">基于历史数据的任务建议</h1>
+            <p class="lead text-secondary mb-0">不是泛泛 brainstorm，而是从真实结果、风险信号和热点模块中聚合出来的结构化后续任务建议，并支持一键派发为 build 任务。</p>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-light" href="/">
+              <i class="bi bi-arrow-left me-2"></i>返回首页
+            </a>
+            <a class="btn btn-outline-info" href="/learn">
+              <i class="bi bi-lightbulb me-2"></i>查看 Learn 报告
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="row g-4 mb-4">
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">Idea 总数</div>
+          <div class="metric-value">{{ report.get('summary', {}).get('idea_count', 0) }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100 {% if report.get('summary', {}).get('top_priority_count', 0) %}metric-alert{% endif %}">
+          <div class="metric-label">高优先级</div>
+          <div class="metric-value">{{ report.get('summary', {}).get('top_priority_count', 0) }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">推荐 Repo</div>
+          <div class="metric-value metric-value-sm">{{ report.get('summary', {}).get('repo') or '-' }}</div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-xl-3">
+        <div class="metric-card h-100">
+          <div class="metric-label">推荐分支</div>
+          <div class="metric-value metric-value-sm">{{ report.get('summary', {}).get('base_branch') or '-' }}</div>
+          <div class="small text-secondary mt-2">{{ mtime or '-' }} · {{ size_kb or 0 }} KB</div>
+        </div>
+      </div>
+    </div>
+
+    <section class="card border-0 shadow-lg mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h2 class="h4 mb-1">结构化 Idea Backlog</h2>
+            <p class="text-secondary mb-0">每条建议都带有 why-now、证据、建议改动范围和一键派发入口。</p>
+          </div>
+        </div>
+        {% if report.get('ideas') %}
+        <div class="d-flex flex-column gap-3 idea-list">
+          {% for item in report.get('ideas', []) %}
+          <section class="finding-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+              <div class="min-w-0">
+                <div class="d-flex flex-wrap gap-2 mb-2 small">
+                  <span class="badge text-bg-dark border">#{{ item['rank'] }}</span>
+                  <span class="badge text-bg-{{ 'danger' if item['priority'] == 'high' else ('warning' if item['priority'] == 'medium' else 'secondary') }}">{{ item['priority'] }}</span>
+                  <span class="badge text-bg-dark border">score {{ item['score'] }}</span>
+                  <span class="badge text-bg-primary-subtle border border-primary-subtle text-primary-emphasis">{{ item['category_label'] }}</span>
+                  <span class="badge text-bg-dark border">{{ item['task_kind'] }}</span>
+                  <span class="badge text-bg-dark border">risk {{ item['risk_level'] }}</span>
+                </div>
+                <h3 class="h5 mb-2 text-break">{{ item['title'] }}</h3>
+                <div class="small text-secondary text-break mb-2">why now: {{ item['why_now'] }}</div>
+                <div class="small text-secondary text-break">repo: {{ item['repo'] }} / {{ item['base_branch'] }} · fingerprint: <code>{{ item['fingerprint'] }}</code></div>
+              </div>
+              <div class="d-flex flex-column gap-2 flex-shrink-0">
+                <form method="post" action="/idea/queue/{{ item['id'] }}">
+                  <button class="btn btn-sm btn-success" type="submit">
+                    <i class="bi bi-plus-circle me-2"></i>派发为任务
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div class="row g-3 align-items-start">
+              <div class="col-12 col-xl-5">
+                <div class="result-summary h-100">
+                  <div class="small text-uppercase fw-semibold text-info-emphasis mb-2">目标</div>
+                  <div class="small text-break mb-3">{{ item['goal'] }}</div>
+                  <div class="small text-uppercase fw-semibold text-info-emphasis mb-2">验收</div>
+                  <ul class="result-list mb-0">
+                    {% for line in item.get('acceptance', []) %}<li>{{ line }}</li>{% endfor %}
+                  </ul>
+                </div>
+              </div>
+              <div class="col-12 col-xl-3">
+                <div class="result-summary h-100">
+                  <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">建议范围</div>
+                  {% if item.get('allowed_paths') %}
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    {% for path in item.get('allowed_paths', []) %}<span class="badge text-bg-dark border"><code>{{ path }}</code></span>{% endfor %}
+                  </div>
+                  {% else %}
+                  <div class="small text-secondary mb-3">未推断到明确路径</div>
+                  {% endif %}
+                  {% if item.get('related_modules') %}
+                  <div class="small text-uppercase fw-semibold text-warning-emphasis mb-2">关联模块</div>
+                  <div class="d-flex flex-wrap gap-2">
+                    {% for module in item.get('related_modules', []) %}<span class="badge text-bg-secondary"><code>{{ module }}</code></span>{% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-12 col-xl-4">
+                <div class="result-summary h-100">
+                  <div class="small text-uppercase fw-semibold text-success-emphasis mb-2">历史证据</div>
+                  {% if item.get('evidence') %}
+                  <ul class="result-list mb-3">
+                    {% for line in item.get('evidence', []) %}<li>{{ line }}</li>{% endfor %}
+                  </ul>
+                  {% else %}
+                  <div class="small text-secondary mb-3">暂无显式证据片段</div>
+                  {% endif %}
+                  {% if item.get('outputs_hint') %}
+                  <div class="small text-uppercase fw-semibold text-success-emphasis mb-2">期望输出</div>
+                  <ul class="result-list mb-0">
+                    {% for line in item.get('outputs_hint', []) %}<li>{{ line }}</li>{% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </section>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="queue-empty d-flex align-items-center justify-content-center text-center text-secondary small rounded-4 border border-secondary-subtle">暂无可用 idea，先跑更多历史任务后再生成。</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card border-0 shadow-lg overflow-hidden">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h2 class="h4 mb-1">Raw JSON</h2>
+            <p class="text-secondary mb-0">用于排查 idea 聚合逻辑。</p>
+          </div>
+        </div>
+        <pre class="result-pre mb-0">{{ raw }}</pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

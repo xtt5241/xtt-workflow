@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 
+from idea_generator import refresh_idea_backlog_report
 from post_task_learn import refresh_post_task_learn_report
 
 MANAGER_DIR = Path(__file__).resolve().parent
@@ -698,6 +699,7 @@ def write_task_result(task_path: str | Path, log_path: str | Path | None = None,
     payload = build_result_payload(task_path, log_path=log_path, result_path=result_path)
     write_json(result_path or result_path_for_task(payload["task_id"]), payload)
     refresh_post_task_learn_report(strict=False)
+    refresh_idea_backlog_report(strict=False)
     return payload
 
 

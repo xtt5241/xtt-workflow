@@ -182,3 +182,9 @@ body {
 .learn-chip {
   font-weight: 500;
 }
+
+.idea-list {
+  max-height: 72rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
